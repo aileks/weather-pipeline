@@ -26,14 +26,14 @@ dbt-build:
 test:
 	uv run pytest
 
-verify-offline:
+verify:
 	uv run python scripts/verify_offline.py
 
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
 
-fmt:
+format:
 	uv run ruff check --fix .
 	uv run ruff format .
 
