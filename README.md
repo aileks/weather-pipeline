@@ -22,8 +22,6 @@ fct_hourly_weather · dim_location · dim_date
 daily_weather_summary · weather_anomalies
 ```
 
-The authoritative architecture diagram, with layer responsibilities, lives in [docs/overview.md](docs/overview.md).
-
 ## Documentation index
 
 | Document                                         | Read it when you want to understand                                                                     |
@@ -38,8 +36,6 @@ The authoritative architecture diagram, with layer responsibilities, lives in [d
 | [Operations Runbook](docs/operations-runbook.md) | Setup, configuration, running things, verifying runs, troubleshooting, the only document with commands  |
 | [Concepts](docs/concepts.md)                     | Data engineering concepts (idempotency, backfills, dimensional modeling) explained through this project |
 | [Design Decisions](docs/design-decisions.md)     | Why each choice was made, what was rejected, limitations, and the production migration path             |
-
-New here? Read [Overview](docs/overview.md), then the component doc you're touching. Setting it up or operating it? [Operations Runbook](docs/operations-runbook.md) has every command.
 
 ## Attribution
 

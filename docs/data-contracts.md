@@ -9,9 +9,10 @@ The implementation milestones must produce tables that match this contract; a sc
 - `stg_hourly_observations` reads `raw.weather_observations`.
 - `fct_hourly_weather` reads `stg_hourly_observations`.
 - `dim_location` is loaded from the `cities` seed.
-- `dim_date` spans the fact's date range, extended to the end of the current UTC week.
+- `dim_date` spans the partition window (from 2026-07-01) through the end of the current UTC week, independent of fact contents, so it can be built before the first fact rows exist.
 - `weather_anomalies` reads `fct_hourly_weather`.
 - `daily_weather_summary` reads `fct_hourly_weather`, `dim_location`, `dim_date`, and `weather_anomalies`.
+- Bootstrap order: the `cities` seed, `stg_hourly_observations`, `dim_location`, and `dim_date` must exist before the first fact partition runs (`fct_hourly_weather` reads the view and is relationship-tested against both dimensions); see [Orchestration](orchestration.md#bootstrap-and-first-run-ordering).
 
 Relationships are tested by dbt `relationships` tests rather than enforced by the engine. Uniqueness and not-null constraints are likewise dbt tests; the table definitions themselves carry no enforced keys.
 
@@ -90,7 +91,7 @@ Grain: one row per city; `location_id` is the primary key.
 
 ## dim_date
 
-Table, `core` schema, `dbt_utils.date_spine` at day grain. Logic in [Transformation](transformation.md#dim_date).
+Table, `core` schema, `dbt_utils.date_spine` at day grain over the partition window (2026-07-01 through the end of the current UTC week), independent of fact contents. Logic in [Transformation](transformation.md#dim_date).
 
 Grain: one row per day; `date_day` is the primary key.
 
@@ -133,7 +134,7 @@ Grain: one row per (`location_id`, `date_utc`), unique.
 | `humidity_pct_max` | DOUBLE | |
 | `cloud_cover_pct_avg` | DOUBLE | |
 | `dominant_weather_code` | INT | Mode, smallest-value tiebreak |
-| `hours_observed` | INT | 1 to 24 accepted by tests |
+| `hours_observed` | INT | Always 24: the blocking ingestion check rejects incomplete city-days, so a modeled city-day is complete; tests assert exactly 24 |
 | `anomaly_count` | INT | From `weather_anomalies`, 0 when none |
 
 ## weather_anomalies
@@ -150,7 +151,7 @@ Grain: one row per (`location_id`, `hour_ts_utc`, `variable`), only for observat
 | `observed_value` | DOUBLE | |
 | `baseline_mean` | DOUBLE | Mean of comparables |
 | `baseline_std` | DOUBLE | Sample standard deviation of comparables |
-| `comparable_obs_count` | INT | At least 14 or no row is emitted |
+| `comparable_obs_count` | INT | Non-null comparables (`count(value)`); at least 14 or no row is emitted |
 | `z_score` | DOUBLE | Emitted only at abs(z) >= 3.0 |
 
 Relationships: (`location_id`, `hour_ts_utc`) must exist in `fct_hourly_weather`.

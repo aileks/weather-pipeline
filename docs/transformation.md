@@ -59,7 +59,7 @@ The Python asset `raw_weather_observations` and this source resolve to the same 
 
 ## dim_location, the cities seed
 
-`seeds/cities.csv` is the canonical list the whole system derives from (ingestion builds its request from the same list, see [Ingestion & Storage](ingestion-storage.md#configuration)):
+`seeds/cities.csv` is the single authoritative city list: ingestion reads this file directly to build its API requests, `dim_location` is a thin select over it, and nothing else defines cities ([Ingestion & Storage](ingestion-storage.md#configuration)):
 
 | Column | Example | Notes |
 |---|---|---|
@@ -89,7 +89,7 @@ Eight cities spanning hemispheres and climate regimes: New York, London, Tokyo, 
   - Compute **`is_day`** with the `is_daylight` macro (below). The archive API does not serve this flag, so it is derived: NOAA solar-position approximation, day-of-year → solar declination, UTC time + longitude → hour angle, and `is_day = solar_elevation > 0`. Accurate to a few minutes of true sunrise/sunset, which is fine for a flag whose purpose is filtering night-vs-day context.
 - **Model-level doc note:** `precipitation_mm` is the **preceding hour's sum**, never averaged.
 
-Tests (in `_staging__models.yml`): `dbt_utils.unique_combination_of_columns` on (`location_id`, `hour_ts_utc`); `not_null` on keys and `date_utc`; `accepted_ranges`-style `accepted_values`/expression bounds: temperature -60 to 60, humidity 0 to 100, cloud cover 0 to 100, wind 0 to 300 km/h, precipitation at least 0, pressures 300 to 1100 hPa; `weather_code` in the WMO code set (0-3, 45/48, 51-67, 71-77, 80-82, 85/86, 95-99).
+Tests (in `_staging__models.yml`): `dbt_utils.unique_combination_of_columns` on (`location_id`, `hour_ts_utc`); `not_null` on keys and `date_utc`; `accepted_ranges`-style `accepted_values`/expression bounds: temperature -60 to 60, humidity 0 to 100, cloud cover 0 to 100, wind 0 to 300 km/h, precipitation at least 0, pressures 300 to 1100 hPa; `weather_code` in the WMO code set (0-3, 45/48, 51-67, 71-77, 80-82, 85/86, 95-99). Measure nulls are permitted individually but bounded: a singular test asserts each measure column's null fraction stays at or below 5% per (`location_id`, `date_utc`) day, so a quietly degrading variable fails a materialization instead of skewing baselines.
 
 ## fct_hourly_weather
 
@@ -108,7 +108,7 @@ config(
 )
 ```
 
-  `delete+insert` with a composite natural key: re-materializing a partition deletes that day's rows and re-inserts them, the same converging semantics as the raw zone, one layer down. `on_schema_change` is `sync_all_columns` project-wide (M3), so added columns fail loudly rather than silently truncating.
+  `delete+insert` with a composite natural key: re-materializing a partition deletes that day's rows and re-inserts them, the same converging semantics as the raw zone, one layer down. `on_schema_change` is `fail` project-wide: schema divergence raises an error instead of being synchronized, because a schema change is a contract change and starts in [Data Contracts](data-contracts.md), not in an automatic migration.
 - **Columns:** the staging grain plus measures and lineage; the exact schema is in [Data Contracts](data-contracts.md).
 - **Why incremental at ~2k rows/day:** not volume, *semantics*. The fact must absorb re-fetched (revised) partitions without touching the rest of history, and the pattern is the production-shaped one. Cost of full rebuilds is negligible; the marts deliberately choose the other tradeoff.
 
@@ -116,7 +116,7 @@ Tests: `unique_combination_of_columns` (`location_id`, `hour_ts_utc`); `not_null
 
 ## dim_date
 
-**Table, `core`.** `dbt_utils.date_spine` at day grain over the fact's date range, extended to the end of the current UTC week (so the spine doesn't lag mid-week). Standard calendar attributes (year through `is_weekend`); the exact column list is in [Data Contracts](data-contracts.md).
+**Table, `core`.** `dbt_utils.date_spine` at day grain over the partition window (2026-07-01 through the end of the current UTC week), deliberately independent of fact contents: the fact is relationship-tested against this dimension, so the dimension must be buildable before the first fact rows exist (see [bootstrap ordering](orchestration.md#bootstrap-and-first-run-ordering)). Standard calendar attributes (year through `is_weekend`); the exact column list is in [Data Contracts](data-contracts.md).
 
 Tests: `unique`/`not_null` on `date_day`; `accepted_values` boolean for `is_weekend`.
 
@@ -126,9 +126,9 @@ Runs in the unpartitioned group (it has no partition window, it always covers al
 
 **Table, `marts`.** Per `location_id` × `date_utc`, one row of daily aggregates: temperature (min/max/avg plus apparent avg), precipitation sum, wind (avg/max plus dominant direction), pressure and humidity min/avg/max, cloud cover average, dominant weather code, `hours_observed`, and `anomaly_count`. The exact column list is in [Data Contracts](data-contracts.md).
 
-Every aggregate is deterministic under ties: `dominant_*` uses mode with smallest-value tiebreak; `anomaly_count` left-joins `weather_anomalies` (this mart depends on the anomalies mart, both are rebuilt in the same group, dbt orders them). `hours_observed` bounds how partial a day may be (tests accept 1 to 24).
+Every aggregate is deterministic under ties: `dominant_*` uses mode with smallest-value tiebreak; `anomaly_count` left-joins `weather_anomalies` (this mart depends on the anomalies mart, both are rebuilt in the same group, dbt orders them). `hours_observed` is always 24: the blocking ingestion check rejects incomplete city-days, so a city-day that reaches this mart is complete by construction, and the test asserts exactly 24.
 
-Tests: `unique_combination_of_columns` (`location_id`, `date_utc`); `relationships` to both dims; `hours_observed` 1 to 24; `anomaly_count` at least 0; singular tests assert `temp_c_min` <= `temp_c_max`, `wind_kmh_avg` <= `wind_kmh_max`, `pressure_msl_hpa_min` <= `pressure_msl_hpa_max`.
+Tests: `unique_combination_of_columns` (`location_id`, `date_utc`); `relationships` to both dims; `hours_observed` exactly 24; `anomaly_count` at least 0; singular tests assert `temp_c_min` <= `temp_c_max`, `wind_kmh_avg` <= `wind_kmh_max`, `pressure_msl_hpa_min` <= `pressure_msl_hpa_max`.
 
 ## weather_anomalies
 

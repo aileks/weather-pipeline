@@ -12,7 +12,7 @@ Here, every write path is a replace, never a blind append. The ingestion asset's
 
 Some things are never edited after write; state is derived from them instead.
 
-The landing zone is the project's immutable core: every successful fetch is a new Parquet snapshot, and no code path modifies, renames, or deletes one ([Ingestion & Storage](ingestion-storage.md#the-landing-zone-versioned-immutable-snapshots)). Mutation happens nowhere: the raw table is *derived* from the latest snapshot, so "the data changed" is expressed as "a new snapshot exists and the pointer moved". Immutability is what makes replay, lineage, and audit possible at zero extra machinery.
+The landing zone is the project's immutable core: every successful fetch is a new Parquet snapshot, and no code path modifies, renames, or deletes one ([Ingestion & Storage](ingestion-storage.md#the-landing-zone-versioned-immutable-snapshots)). Mutation happens nowhere: the raw table is *derived* from the latest snapshot, so "the data changed" is expressed as "a new snapshot exists and the pointer moved". Immutability is what makes warehouse replay, lineage, and audit possible at zero extra machinery.
 
 ## Incremental loading
 
@@ -42,7 +42,7 @@ Because partitions are independent and every write is idempotent, a backfill is 
 
 Assert the shape of data at boundaries, so shape drift fails loudly instead of corrupting quietly.
 
-Three boundaries, three mechanisms: the ingestion client asserts response structure (8 location objects, expected `hourly_units`, 24 timestamps spanning the day) before anything is written ([Ingestion & Storage](ingestion-storage.md#the-ingestion-asset)); dbt casts and types everything at staging, so a changed column type surfaces at the first model, and `on_schema_change: sync_all_columns` makes fact-column drift fail or sync explicitly rather than silently truncate ([Transformation](transformation.md#fct_hourly_weather)); asset checks and accepted-range tests bound the *values*, not just types ([Quality & Testing](quality-testing.md)).
+Three boundaries, three mechanisms: the ingestion client asserts response structure (8 location objects, expected `hourly_units`, 24 timestamps spanning the day) before anything is written ([Ingestion & Storage](ingestion-storage.md#the-ingestion-asset)); dbt casts and types everything at staging, so a changed column type surfaces at the first model, and `on_schema_change: fail` makes fact-column drift an explicit error rather than a silent truncation or auto-migration ([Transformation](transformation.md#fct_hourly_weather)); asset checks and accepted-range tests bound the *values*, not just types ([Quality & Testing](quality-testing.md)).
 
 ## Deduplication
 
@@ -78,4 +78,4 @@ The failure model is enumerated in [Orchestration](orchestration.md#failure-reco
 
 A retry must be *able* to run, and *safe* to run.
 
-Able: retries target only plausibly transient failures (timeouts, 5xx, 429); deterministic errors (HTTP 400, validation) fail fast and are never retried ([Orchestration](orchestration.md#retries)). Safe: because the write path is idempotent (delete-then-insert in a transaction) and snapshots are immutable, a retry that lands after a partial failure either rewrites the same slice or adds another snapshot; no interleaving produces duplicates or torn state. The unit test that guards this exact scenario (kill point between snapshot and derive) is `test_raw_asset.py`'s re-materialization pair ([Quality & Testing](quality-testing.md#layer-1-pytest)).
+Able: retries target only plausibly transient failures (timeouts, 5xx, 429); deterministic errors (HTTP 400, validation) fail fast and are never retried ([Orchestration](orchestration.md#retries)). Safe: snapshot identity is (partition, run), so a retry reuses the snapshot an earlier attempt of the same run already landed (validating it, skipping the fetch) or lands it fresh, and the derive is a transactional slice replace. A retry never adds a second snapshot for one fetch and never duplicates rows. The unit tests that guard these exact scenarios (same-run reuse, new-run snapshot, kill point between snapshot and derive) are `test_raw_asset.py`'s re-materialization pair ([Quality & Testing](quality-testing.md#layer-1-pytest)).

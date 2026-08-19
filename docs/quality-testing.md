@@ -41,6 +41,7 @@ Model-by-model test specifications live with their models in [Transformation](tr
 | Uniqueness (`dbt_utils.unique_combination_of_columns`) | (`location_id`, `hour_ts_utc`) on staging and fact | A merge that duplicated rows, or a derive bug that double-inserted a slice |
 | Not null | keys, `hour_ts_utc`, `date_utc` | Parsing gaps, broken joins producing null keys |
 | Accepted ranges | temperature -60 to 60, humidity 0 to 100, pressure 300 to 1100, wind 0 to 300 | Unit changes upstream (a sudden Fahrenheit or m/s leak), sensor-model glitches |
+| Null-rate bound | each measure column at most 5% nulls per location-day (singular test in staging) | A variable quietly degrading to mostly nulls, which would otherwise silently thin anomaly baselines |
 | Accepted values | `weather_code` in the WMO set; `variable` in the anomaly variable set | Unexpected categorical values smuggled into a typed column |
 | Relationships | fact -> `dim_location`, fact -> `dim_date`, anomalies -> fact | Referential breaks: a city or date the dimensions do not know about |
 | Singular tests (project-level SQL) | `temp_c_min <= temp_c_max`, `wind_kmh_avg <= wind_kmh_max`, anomaly abs(z) >= 3, `comparable_obs_count >= 14` | Business-rule violations no generic test expresses |
@@ -60,9 +61,12 @@ dbt tests surface as asset checks automatically through the dagster-dbt integrat
 
 ## What fails where
 
+Two different promises are in play, and they fail in different places. Recorded fixtures prove the parser still handles the API contract as it was last observed; they cannot detect Open-Meteo changing its live contract tomorrow. Live drift is caught one place only: the ingestion asset's validation during a real materialization.
+
 | Defect | First line of defense | Where it shows up |
 |---|---|---|
-| API changes response shape or units | pytest (client assertions) | CI, before merge |
+| Parser regresses against the known API contract (shape, units, ordering) | pytest (client assertions on recorded fixtures) | CI, before merge |
+| Live upstream contract drifts (shape or units change at the source) | ingestion validation during a real run | Failed run, partition isolated |
 | API changes variable availability mid-window | units/shape assertions, then row-count asset check | Failed run, partition isolated |
 | One city's data missing from a response | shape assertion (8 location objects) | CI / failed run |
 | Snapshot write collides or partial file survives | atomic write + immutability test | CI |

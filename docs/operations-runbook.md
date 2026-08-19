@@ -20,6 +20,8 @@ Day-to-day entry point is the Dagster UI:
 make dev                     # wraps: uv run dg dev  ->  http://localhost:3000
 ```
 
+One setup step is not optional: enable the **default automation condition sensor** (UI: Automation section). Declarative automation, including the unpartitioned dbt group's eager condition, launches runs only through that sensor; without it, marts never rebuild on their own (see [troubleshooting](#troubleshooting)).
+
 ## Configuration
 
 All environment-specific values flow through a settings module backed by environment variables with safe local defaults; nothing is hard-coded in pipeline logic.
@@ -31,7 +33,7 @@ All environment-specific values flow through a settings module backed by environ
 | `WEATHER_PIPELINE_LANDING_DIR` | `data/raw` | Landing zone root |
 | `WEATHER_PIPELINE_LOG_LEVEL` | `INFO` | Log level for pipeline loggers |
 
-Instance-level configuration lives in `dagster.yaml` alongside the code location definitions and declares two things ([Orchestration](orchestration.md)): the tag-based `warehouse=duckdb` concurrency limit of 1 (DuckDB single-writer serialization), and the freshness feature flag. Settings are resolved once at load; overrides go in the environment (shell, `.env`, or compose), never into committed code.
+Dagster instance configuration (`dagster.yaml`): concurrency, a run-concurrency pool of one keyed on the `warehouse=duckdb` tag, which serializes all writers against DuckDB's single-writer file lock. Asset definitions: freshness policies, attached to the ingestion asset; the current freshness system needs no instance-level feature flag. Settings are resolved once at load; overrides go in the environment (shell, `.env`, or compose), never into committed code.
 
 ## Logging
 
@@ -47,7 +49,7 @@ The `daily_reconciliation` schedule fires at 06:00 UTC and launches 8 partition 
 4. **Landing zone:** one new snapshot file per partition directory:
 
 ```bash
-ls data/raw/year=2026/month=08/day=18/   # -> ingested_at=<this morning>.parquet (+ earlier ones)
+ls data/raw/year=2026/month=08/day=18/   # -> ingested_at=<this morning>Z_run=<id>.parquet (+ earlier ones)
 ```
 
 5. **Data:** the warehouse answers for yesterday:
@@ -83,6 +85,15 @@ make backfill FROM=2026-08-10 TO=2026-08-12   # a repair range
 ```
 
 Both wrap `scripts/backfill.py`, which launches the partitioned job over the range through the local Dagster instance; the UI shows a resumable backfill with per-partition status. Re-running converged days is harmless: new snapshots land that simply repeat the source's final values. The unpartitioned group follows automatically via its automation condition once the backfill completes; if it does not (e.g. the daemon was down), `make dbt-build` (below) rebuilds it explicitly.
+
+**Before the first backfill on an empty warehouse**, build the foundation (cities seed, staging view, `dim_location`, `dim_date`), or the first fact partition will find no view or dimensions to build against:
+
+```bash
+make bootstrap                 # dbt seed + staging view + dimensions
+make backfill FROM=2026-07-01 TO=2026-08-18
+```
+
+**Before backfilling a new city's partitions**, run `make bootstrap` again so the seed and `dim_location` know the city before the fact's relationship tests execute. The ordering design is [Orchestration: bootstrap and first-run ordering](orchestration.md#bootstrap-and-first-run-ordering).
 
 ## Rebuilding the warehouse from the landing zone
 
@@ -138,7 +149,8 @@ Workflow: `.github/workflows/ci.yml`, on every push and pull request, four offli
 
 | Symptom | Likely cause | Action |
 |---|---|---|
-| `Could not set lock on file` / `database is locked` | Another process holds the warehouse: a `duckdb` CLI session, a second `dg dev`, the Docker stack, or two runs racing (concurrency config not applied) | Close the other holder; verify `dagster.yaml` declares the `warehouse=duckdb` tag limit; re-run |
+| `Could not set lock on file` / `database is locked` | Another process holds the warehouse: a `duckdb` CLI session, a second `dg dev`, the Docker stack, or two runs racing (concurrency config not applied) | Close the other holder; verify `dagster.yaml` declares the `warehouse=duckdb` pool; re-run |
+| Marts never rebuild after fact runs | Default automation condition sensor disabled, so the eager condition launches nothing | UI: Automation section, enable the default automation condition sensor, or rebuild explicitly with `make dbt-build` |
 | Run fails with HTTP 400 and a `reason` | Deterministic API error: date out of allowed range (start before 1940-01-01, end after today), malformed request | Fix the partition range; do not retry, it will fail identically |
 | HTTP 429 after retries | Rate limiting (unlikely: 8 calls/day vs 10k/day allowance) | Check for accidental parallel backfills or non-pipeline traffic from your IP |
 | Row-count asset check red | Partial or padded response; API shape change | Inspect the latest snapshot (`uv run duckdb -c "SELECT ... FROM read_parquet('<snapshot path>')" `), compare to the [Ingestion & Storage](ingestion-storage.md#the-source-open-meteo-historical-weather-api) contract; re-materialize the partition after the cause is fixed |
@@ -156,6 +168,7 @@ Workflow: `.github/workflows/ci.yml`, on every push and pull request, four offli
 | `make backfill FROM=DATE TO=DATE` | range backfill via `scripts/backfill.py` |
 | `make reconcile` | trailing-8 backfill (schedule-equivalent, immediate) |
 | `make rebuild-raw` | re-derive raw table from latest snapshots |
+| `make bootstrap` | `dbt seed` + staging view + dimensions (before first or new-city backfills) |
 | `make dbt-build` | `dbt build` full project |
 | `make test` | `uv run pytest` |
 | `make verify-offline` | offline end-to-end scenario |

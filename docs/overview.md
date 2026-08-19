@@ -85,7 +85,7 @@ Take one observation: Reykjavík, 2026-08-15, 14:00 UTC, temperature 11.3 °C.
 4. **Stage.** dbt's staging view presents it renamed (`temperature_c`), typed, deduplicated on `(location_id, hour_ts_utc)`, with `is_day` computed from latitude and the UTC timestamp.
 5. **Model.** The incremental `fct_hourly_weather` merges the day's rows on its unique key; `dim_location` (from the cities seed) and `dim_date` give the hour its dimensional home.
 6. **Serve.** `daily_weather_summary` rolls the day up per city. `weather_anomalies` compares our 14:00 reading against its baseline window, the same city, the same hour of day, the trailing 30 days, and emits a row only if it is ≥ 3 standard deviations out.
-7. **Converge.** Over the following week, each morning's run re-fetches this partition and lands new snapshots. While the source revises the day (reanalysis landing), the raw table tracks the newest snapshot. Once the source stops changing, the day has converged and new snapshots are byte-equivalent reruns.
+7. **Converge.** Over the following week, each morning's run re-fetches this partition and lands new snapshots. While the source revises the day (reanalysis landing), the raw table tracks the newest snapshot. Once the source stops changing, the day has converged and new snapshots are source-value-equivalent reruns: every weather value matches the previous snapshot, and only run metadata (filename timestamp, `ingested_at_utc`) differs.
 
 ## Intended technologies and compatibility assumptions
 

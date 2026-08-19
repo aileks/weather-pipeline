@@ -2,7 +2,7 @@
 
 Dagster owns the *when*: what runs, in what order, per partition, on what schedule, with what retries, and what happens when something fails. All transformation logic lives in dbt ([Transformation](transformation.md)); all fetch/land/derive logic lives in the ingestion asset ([Ingestion & Storage](ingestion-storage.md)). Dagster definitions describe dependencies, partitions, schedules, resources, retries, configuration, and asset checks, nothing more.
 
-This document is the source of truth for the operational constants: the 06:00 UTC schedule cadence, the trailing-8 reconciliation window, the 2026-07-01 partition start, the `warehouse=duckdb` concurrency limit of 1, the retry policy, and the freshness thresholds. Other documents summarize these values and link here.
+This document is the source of truth for the operational constants: the 06:00 UTC schedule cadence, the trailing-8 reconciliation window, the 2026-07-01 partition start, the warehouse run-concurrency pool of 1, the retry policy, and the freshness thresholds. Other documents summarize these values and link here.
 
 ## The asset graph
 
@@ -44,9 +44,18 @@ The edge from `raw_weather_observations` into `stg_hourly_observations` is the s
 The dbt project is exposed to Dagster as two `@dbt_assets` definitions, split on the selector `config.materialized:incremental` (the documented dagster-dbt pattern for projects that mix partitioned incremental models with plain ones):
 
 1. **Partitioned group** (`fct_hourly_weather`): daily partitions; each run executes `dbt build --select <incremental models> --vars '{"start_date": "...", "end_date": "..."}'` for exactly one UTC day. Tests for those models run in the same invocation and surface as Dagster asset checks.
-2. **Unpartitioned group** (staging view, dimensions, marts): no partitions; each run executes `dbt build` (seed, then models) for the remaining models. It carries an `AutomationCondition.eager()` condition: whenever any `fct_hourly_weather` partition is updated, the daemon re-materializes this group. That is the whole coupling: fact partitions change, marts follow.
+2. **Unpartitioned group** (staging view, dimensions, marts): no partitions; each run executes `dbt build` (seed, then models) for the remaining models. It carries an `AutomationCondition.eager()` condition: whenever any `fct_hourly_weather` partition is updated, the daemon re-materializes this group. That is the whole coupling: fact partitions change, marts follow. Declarative automation only launches runs when Dagster's **default automation condition sensor** is enabled ([Operations Runbook](operations-runbook.md#configuration)); with the sensor off, eager conditions evaluate to nothing and marts wait for a manual `make dbt-build`.
 
 Splitting matters for backfills: a 50-day backfill runs the partitioned group 50 times (one focused day each) while the unpartitioned group rebuilds once afterwards, instead of rebuilding every mart 50 times.
+
+### Bootstrap and first-run ordering
+
+The group split has a chicken-and-egg hazard on an empty warehouse: the partitioned group's `fct_hourly_weather` reads the staging view and is relationship-tested against `dim_location` and `dim_date`, all of which live in the unpartitioned group that normally runs *after* fact updates. Two choices dissolve the cycle instead of papering over it:
+
+- **`dim_date` does not derive from the fact.** Its spine covers the partition window (2026-07-01 through the end of the current UTC week) regardless of fact contents, so it can be built before any fact rows exist and the fact's relationship tests pass from the very first partition.
+- **A foundation build precedes the initial backfill.** Bootstrap order: (1) build the foundation, the `cities` seed, `stg_hourly_observations`, `dim_location`, and `dim_date`; (2) run the partition backfill (raw ingestion plus the partitioned fact group per day); (3) let the automation condition rebuild the unpartitioned group, which now populates the marts. The commands live in [Operations Runbook](operations-runbook.md#backfills).
+
+The same rule covers new cities: a backfill that introduces a city the dimensions do not know would fail the fact's relationship tests. Re-run the seed and `dim_location` (the foundation build) before backfilling a new city's partitions; the runbook folds this into the backfill procedure.
 
 ## Daily reconciliation schedule
 
@@ -65,24 +74,24 @@ Retries are for plausibly transient failures only, and deterministic errors fail
 
 - **Transport failures** (timeouts, connection errors, HTTP 429/5xx) raise a retryable error and are retried up to 3 times with increasing delay. Control is explicit: the client raises Dagster's retry-requested exception for these only.
 - **Deterministic failures** (HTTP 400 with an error body, unit mismatches, malformed structure, row-count violations) raise a descriptive failure immediately: no retry, because the same request would fail identically. The error message carries endpoint, partition, and what was wrong.
-- **Retry safety** rests on the write path: a retry that dies between snapshot write and derive leaves the snapshot on disk and the previous table state in place; the next attempt rewrites the same slice from a new snapshot. No state exists in which a retry duplicates rows (see [retry safety](concepts.md#retry-safety)).
+- **Retry safety** rests on the write path: a retry that dies between snapshot write and derive leaves the snapshot on disk and the previous table state in place; the next attempt finds its own run's snapshot, validates it, skips the fetch, and re-derives the same slice in one transaction. A retry can never add a second snapshot for the same fetch operation, so retries are idempotent, not merely convergent (see [retry safety](concepts.md#retry-safety)).
 
 ## DuckDB single-writer and run concurrency
 
 DuckDB allows exactly one read-write process per database file. The pipeline has two kinds of writers: Dagster processes (ingestion asset, deriving the raw table) and the dbt subprocess. They never overlap within a single run (steps are sequential), but *concurrent runs* (a backfill racing the schedule, or the two dbt groups overlapping) would fight over the file lock.
 
-The mitigation is declarative: every run the project launches carries a `warehouse=duckdb` tag, and instance configuration declares a tag-based concurrency limit of 1 for that tag. The queue serializes all warehouse writers; throughput is irrelevant at this scale (a partition materializes in seconds). This is a deliberate tradeoff of the DuckDB decision; the escape hatches (separate raw/serve files, or a client-server engine) are production-path options in [Design Decisions](design-decisions.md#moving-to-production).
+The mitigation is declarative: instance configuration declares a run-concurrency pool of one (keyed on the `warehouse=duckdb` tag every run carries), which is the appropriate mechanism for protecting a single-writer resource. The pool serializes all warehouse writers; throughput is irrelevant at this scale (a partition materializes in seconds). This is a deliberate tradeoff of the DuckDB decision; the escape hatches (separate raw/serve files, or a client-server engine) are production-path options in [Design Decisions](design-decisions.md#moving-to-production).
 
 ## Freshness
 
-The ingestion asset carries a freshness policy (current-generation Dagster freshness API, enabled in instance config): warn at 36 hours, fail at 48 since the last materialization. The daily schedule cadence means a healthy pipeline never trips it; a paused schedule or a week of failures does. Freshness renders on the asset in the UI, so "is the pipeline alive?" is a glance, not an investigation.
+The ingestion asset carries a freshness policy at its definition (warn at 36 hours, fail at 48 since the last materialization); in the current freshness system, policies are active by default and no instance-level feature flag is needed. The feature is marked under active development upstream, so the exact API surface is re-verified at implementation time. The daily schedule cadence means a healthy pipeline never trips the policy; a paused schedule or a week of failures does. Freshness renders on the asset in the UI, so "is the pipeline alive?" is a glance, not an investigation.
 
 ## Backfills
 
 Backfills are just batched partition materializations of the partitioned job (ingestion asset plus partitioned dbt group); the unpartitioned group follows via its automation condition. Because every layer is idempotent, a backfill is exactly the equivalent partition runs executed in batch: no duplicates, no partial state, and identical results for any day whose source values have already converged ([backfills](concepts.md#backfills) walks through why it holds here).
 
 - **Initial backfill:** the partition range from 2026-07-01 through yesterday, launched once at project setup (the command lives in [Operations Runbook](operations-runbook.md#backfills)).
-- **Repair backfills:** any sub-range, after fixing whatever went wrong. Re-running converged days is harmless: new snapshots land that are byte-equivalent reruns of the same source values.
+- **Repair backfills:** any sub-range, after fixing whatever went wrong. Re-running converged days is harmless: new snapshots land that are source-value-equivalent reruns of the same values, differing only in run metadata.
 - **Selection:** launched from the UI (range backfill on the partitioned job) or the script in the runbook; the daemon executes partitions one at a time under the concurrency limit.
 
 ## Failure recovery

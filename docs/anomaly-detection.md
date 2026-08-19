@@ -9,7 +9,7 @@ For every observation of a covered variable at hour *t*:
 - **Comparables:** observations of the *same variable*, at the *same location*, at the *same hour of day (UTC)*, in the trailing 30 days before *t* (strictly earlier: the window is `[t - 30 days, t)`). Roughly 30 comparable values; never including the observation being scored.
 - **Baseline:** mean and sample standard deviation (`stddev_samp`) of the comparables.
 - **Score:** `z = (observed - baseline_mean) / baseline_std` (no row emitted if the standard deviation is 0).
-- **Guard:** a score is emitted only with at least **14 comparables**. A new city or a young partition window produces silence, not noise.
+- **Guard:** a score is emitted only with at least **14 non-null comparables** (`count(value)`, matching the values the mean and standard deviation actually use, since measure nulls are possible). A new city or a young partition window produces silence, not noise.
 - **Anomaly:** `abs(z) >= 3.0`.
 
 ### Why hour-of-day matching
@@ -50,7 +50,7 @@ scored as (
         h.location_id, h.hour_ts_utc, h.variable, h.value as observed_value,
         avg(c.value)     as baseline_mean,
         stddev_samp(c.value) as baseline_std,
-        count(*)         as comparable_obs_count
+        count(c.value)   as comparable_obs_count
     from hourly h
     join hourly c
       on  c.location_id = h.location_id
@@ -65,7 +65,7 @@ select
     baseline_mean, baseline_std, comparable_obs_count,
     (observed_value - baseline_mean) / nullif(baseline_std, 0) as z_score
 from scored
-where comparable_obs_count >= 14
+where comparable_obs_count >= 14  -- non-null comparables only
   and abs((observed_value - baseline_mean) / nullif(baseline_std, 0)) >= 3
 ```
 

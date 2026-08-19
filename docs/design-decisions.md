@@ -31,9 +31,11 @@ DuckDB gives direct Parquet read/write, fast analytical queries on a single file
 
 ### 2. Versioned immutable snapshots, not one file per day
 
-Alternatives considered: parsed rows directly into a DuckDB table, no landing zone at all (simplest, but loses replay-without-refetch and the audit record of what was actually received); one Parquet file per day, overwritten on re-fetch (supports reconciliation but destroys received history, so "immutable" becomes a lie and forensics are impossible).
+Alternatives considered: parsed rows directly into a DuckDB table, no landing zone at all (simplest, but loses warehouse replay and the audit record of what was actually received); one Parquet file per day, overwritten on re-fetch (supports reconciliation but destroys received history, so "immutable" becomes a lie and forensics are impossible).
 
-Versioned snapshots cost one thing, storage growth (bounded: 8 cities x 24 hours x 10 variables x one file per day per re-fetch; kilobytes), and buy replay, lineage, and reconciliation without conflict: reconciliation appends `ingested_at=...` files and the derivation pointer moves. This was the one change the design review demanded, and it was correct: the original single-file design could not be both immutable and reconcilable.
+Versioned snapshots cost one thing, storage growth (bounded: 8 cities x 24 hours x 10 variables x one file per day per re-fetch; kilobytes), and buy warehouse replay, lineage, and reconciliation without conflict: reconciliation appends `ingested_at=...` files and the derivation pointer moves. This was the one change the design review demanded, and it was correct: the original single-file design could not be both immutable and reconcilable.
+
+One precision on what "replay" means here: snapshots hold **parsed** rows, not the verbatim API response. The warehouse and everything downstream can be reconstructed from the landing zone alone, but the original HTTP-response-to-parser transformation cannot be replayed; if a parser bug were discovered later, the affected days must be re-fetched from the API rather than re-parsed from disk. Landing verbatim JSON alongside the parsed rows would buy full parser replay at the cost of a second storage format and write path, and was deliberately not taken for a free, keyless source.
 
 ### 3. Converging re-materialization, not pinning or drifting
 
@@ -47,7 +49,7 @@ Accepted knowingly, each with its escape hatch:
 
 - **DuckDB single-writer:** all warehouse writers serialize through one concurrency tag; throughput scales to "seconds per partition", not to parallel fleets. Escape: split raw/serve files, a client-server engine, or a real warehouse (see below).
 - **Local files as infrastructure:** the landing zone and warehouse are directories on one machine; no replication, no ACLs, no versioning beyond git-ignored files. Escape: object storage for snapshots; managed storage for tables.
-- **Snapshot retention is unbounded:** nothing prunes old snapshots, and byte-equivalent re-fetches of converged days still land files. Escape (when needed): a retention policy that keeps first and converged snapshots and prunes the middle; deliberately not built yet.
+- **Snapshot retention is unbounded:** nothing prunes old snapshots, and source-value-equivalent re-fetches of converged days still land files (snapshots can never be byte-identical: each embeds its run's `ingested_at_utc`). Escape (when needed): a retention policy that keeps first and converged snapshots and prunes the middle; deliberately not built yet.
 - **No secrets manager:** correct today (keyless API), but the moment a keyed endpoint or a cloud target appears, `.env` discipline is not enough. Escape: standard secret injection via environment at deployment time.
 - **Precipitation anomaly detection is weak:** zero-heavy skew makes z-scores a poor detector there; kept deliberately and labeled loudly ([Anomaly Detection](anomaly-detection.md#variables-covered)). Escape: percentile or wet-day-conditioned methods, roadmap.
 - **One timezone basis:** everything is UTC, so "local day" questions (what happened Tuesday in Tokyo) need conversion at query time; a `dim_location.timezone` column exists precisely to make that easy, but no local-day marts are planned.
