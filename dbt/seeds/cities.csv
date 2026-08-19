@@ -1,0 +1,9 @@
+city_id,city_name,country,latitude,longitude,timezone,climate_zone
+new-york,New York,United States,40.7128,-74.0060,America/New_York,humid subtropical
+london,London,United Kingdom,51.5072,-0.1276,Europe/London,temperate oceanic
+tokyo,Tokyo,Japan,35.6762,139.6503,Asia/Tokyo,humid subtropical
+sydney,Sydney,Australia,-33.8688,151.2093,Australia/Sydney,humid subtropical
+sao-paulo,São Paulo,Brazil,-23.5505,-46.6333,America/Sao_Paulo,subtropical highland
+cairo,Cairo,Egypt,30.0444,31.2357,Africa/Cairo,hot desert
+mumbai,Mumbai,India,19.0760,72.8777,Asia/Kolkata,tropical wet and dry
+reykjavik,Reykjavík,Iceland,64.1466,-21.9426,Atlantic/Reykjavik,subpolar oceanic
