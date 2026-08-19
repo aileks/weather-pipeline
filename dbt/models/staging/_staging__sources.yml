@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: Raw zone tables, derived state written by the Dagster ingestion asset.
+    tables:
+      - name: weather_observations
+        meta:
+          dagster:
+            asset_key: ["raw", "weather_observations"]

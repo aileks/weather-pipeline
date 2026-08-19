@@ -1,0 +1,60 @@
+version: 2
+
+models:
+  - name: stg_hourly_observations
+    description: >
+      The single cleaning boundary: typed, renamed, deduplicated observations
+      with the derived is_day flag. Everything downstream trusts it completely.
+      precipitation_mm is the preceding hour's sum and must never be averaged.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, hour_ts_utc]
+      - not_null:
+          arguments:
+            column_name: location_id
+      - not_null:
+          arguments:
+            column_name: hour_ts_utc
+      - not_null:
+          arguments:
+            column_name: date_utc
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: temperature_c
+            min_value: -60
+            max_value: 60
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: relative_humidity_pct
+            min_value: 0
+            max_value: 100
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: cloud_cover_pct
+            min_value: 0
+            max_value: 100
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: wind_speed_kmh
+            min_value: 0
+            max_value: 300
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: precipitation_mm
+            min_value: 0
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: pressure_msl_hpa
+            min_value: 300
+            max_value: 1100
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: surface_pressure_hpa
+            min_value: 300
+            max_value: 1100
+      - accepted_values:
+          arguments:
+            column_name: weather_code
+            values: [0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 97, 98, 99]
+            quote: false
