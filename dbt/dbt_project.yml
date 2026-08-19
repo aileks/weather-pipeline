@@ -1,0 +1,39 @@
+name: weather
+version: "1.0.0"
+config-version: 2
+profile: weather
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+target-path: target
+clean-targets: ["target", "dbt_packages"]
+
+# Windowed runs (Dagster partitions) override these; the defaults build
+# everything, so a plain full build works without vars.
+vars:
+  start_date: "1970-01-01"
+  end_date: "2999-12-31"
+
+models:
+  weather:
+    # Schema divergence is a contract change and must fail, not auto-sync
+    # (docs/design-decisions.md).
+    +on_schema_change: fail
+    staging:
+      +schema: staging
+      +materialized: view
+    core:
+      +schema: core
+      +materialized: table
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  weather:
+    cities:
+      +column_types:
+        latitude: double
+        longitude: double
