@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: dim_location
+    description: >
+      One row per city, from the cities seed (the single authoritative city
+      list). Coordinates are the requested ones, not the API's grid-snapped
+      provenance values.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: location_id
+      - not_null:
+          arguments:
+            column_name: location_id
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: latitude
+            min_value: -90
+            max_value: 90
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: longitude
+            min_value: -180
+            max_value: 180
