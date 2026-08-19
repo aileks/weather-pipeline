@@ -1,0 +1,9 @@
+weather:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # resolved against the working directory: run from the repo root,
+      # as the Makefile targets do
+      path: warehouse/weather.duckdb
+      threads: 1
