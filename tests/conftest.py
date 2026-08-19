@@ -1,6 +1,16 @@
 import datetime as dt
+import json
+from pathlib import Path
 
 from weather_pipeline.open_meteo import ObservationRow
+
+RECORDED_API_FIXTURE = Path(__file__).parent / "fixtures" / "api" / "archive_2026-08-17.json"
+RECORDED_DAY = dt.date(2026, 8, 17)
+
+
+def recorded_payload() -> dict:
+    """The recorded real archive response for RECORDED_DAY, verbatim."""
+    return json.loads(RECORDED_API_FIXTURE.read_text())
 
 
 def observation_row(**overrides) -> ObservationRow:
