@@ -123,10 +123,10 @@ uv run dbt docs serve   --project-dir dbt --profiles-dir dbt
 
 ```bash
 uv run pytest                # the offline test pyramid (quality-testing.md)
-make verify-offline          # fixtures -> Dagster materialization -> dbt build -> assertions
+make verify                  # fixtures -> Dagster materialization -> dbt build -> assertions
 uv run ruff check .
 uv run ruff format --check .
-make fmt                     # apply formatting
+make format                  # apply formatting
 ```
 
 ## Docker
@@ -171,6 +171,6 @@ Workflow: `.github/workflows/ci.yml`, on every push and pull request, four offli
 | `make bootstrap` | `dbt seed` + staging view + dimensions (before first or new-city backfills) |
 | `make dbt-build` | `dbt build` full project |
 | `make test` | `uv run pytest` |
-| `make verify-offline` | offline end-to-end scenario |
-| `make lint` / `make fmt` | ruff check / format |
+| `make verify` | offline end-to-end scenario |
+| `make lint` / `make format` | ruff check / format |
 | `make clean` | remove caches and build artifacts (never touches `data/` or `warehouse/`) |

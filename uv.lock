@@ -1520,6 +1520,7 @@ dependencies = [
     { name = "dagster-duckdb" },
     { name = "dbt-core" },
     { name = "dbt-duckdb" },
+    { name = "duckdb" },
     { name = "httpx" },
 ]
 
@@ -1537,6 +1538,7 @@ requires-dist = [
     { name = "dagster-duckdb", specifier = "~=0.29" },
     { name = "dbt-core", specifier = "~=1.11.0" },
     { name = "dbt-duckdb", specifier = "~=1.11.0" },
+    { name = "duckdb", specifier = ">=1.0" },
     { name = "httpx", specifier = ">=0.27" },
 ]
 
