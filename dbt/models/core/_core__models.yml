@@ -23,3 +23,74 @@ models:
             column_name: longitude
             min_value: -180
             max_value: 180
+
+  - name: dim_date
+    description: >
+      Day-grain calendar spine over the partition window through the end of
+      the current UTC week, independent of fact contents so it can be built
+      before the first fact rows.
+    data_tests:
+      - unique:
+          arguments:
+            column_name: date_day
+      - not_null:
+          arguments:
+            column_name: date_day
+      - accepted_values:
+          arguments:
+            column_name: is_weekend
+            values: [true, false]
+            quote: false
+
+  - name: fct_hourly_weather
+    description: >
+      The atomic fact: one row per location per hour, the persisted instance
+      of the staging grain. Incremental with delete+insert on
+      (location_id, hour_ts_utc), windowed by the start_date/end_date vars.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, hour_ts_utc]
+      - not_null:
+          arguments:
+            column_name: location_id
+      - not_null:
+          arguments:
+            column_name: hour_ts_utc
+      - not_null:
+          arguments:
+            column_name: date_utc
+      - relationships:
+          arguments:
+            column_name: location_id
+            to: ref('dim_location')
+            field: location_id
+      - relationships:
+          arguments:
+            column_name: date_utc
+            to: ref('dim_date')
+            field: date_day
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: temperature_c
+            min_value: -60
+            max_value: 60
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: relative_humidity_pct
+            min_value: 0
+            max_value: 100
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: wind_speed_kmh
+            min_value: 0
+            max_value: 300
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: precipitation_mm
+            min_value: 0
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: pressure_msl_hpa
+            min_value: 300
+            max_value: 1100
