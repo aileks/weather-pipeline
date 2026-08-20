@@ -3,9 +3,9 @@ weather:
   outputs:
     dev:
       type: duckdb
-      # The default is relative to the repo root (how the Makefile invokes
-      # dbt); Dagster resolves WEATHER_PIPELINE_DUCKDB_PATH to an absolute
-      # path at Definitions load because its dbt subprocesses run with
-      # cwd=dbt/.
-      path: "{{ env_var('WEATHER_PIPELINE_DUCKDB_PATH', 'warehouse/weather.duckdb') }}"
+      # dbt always runs with its working directory inside dbt/ (the Makefile
+      # and scripts chdir there, and dagster-dbt does the same), so the
+      # default is relative to the project directory; Dagster resolves
+      # WEATHER_PIPELINE_DUCKDB_PATH to an absolute path at Definitions load.
+      path: "{{ env_var('WEATHER_PIPELINE_DUCKDB_PATH', '../warehouse/weather.duckdb') }}"
       threads: 1
