@@ -33,7 +33,7 @@ All environment-specific values flow through a settings module backed by environ
 | `WEATHER_PIPELINE_LANDING_DIR` | `data/raw` | Landing zone root |
 | `WEATHER_PIPELINE_LOG_LEVEL` | `INFO` | Log level for pipeline loggers |
 
-Dagster instance configuration (`dagster.yaml`): concurrency, a run-concurrency pool of one keyed on the `warehouse=duckdb` tag, which serializes all writers against DuckDB's single-writer file lock. Asset definitions: freshness policies, attached to the ingestion asset; the current freshness system needs no instance-level feature flag. Settings are resolved once at load; overrides go in the environment (shell, `.env`, or compose), never into committed code.
+Dagster instance configuration: concurrency and the run-monitoring cleanup, committed at `.dagster/dagster.yaml`. The Makefile exports `DAGSTER_HOME=<repo>/.dagster` so `make dev`, `make backfill`, and `make reconcile` share one instance; the pool section declares run granularity and a default limit of one, serializing all writers against DuckDB's single-writer file lock (writers join the `warehouse` pool in code). Asset definitions: freshness policies, attached to the ingestion asset; the current freshness system needs no instance-level feature flag. Settings are resolved once at load; overrides go in the environment (shell, `.env`, or compose), never into committed code.
 
 ## Logging
 
