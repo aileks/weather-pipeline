@@ -27,13 +27,15 @@ PARTITION_START = dt.date(2026, 7, 1)
 
 WAREHOUSE_RUN_TAGS = {"warehouse": "duckdb"}
 
+INGESTION_ASSETS = [
+    weather_observations,
+    expected_row_count,
+    timestamps_within_partition,
+]
+
 partitioned_job = dg.define_asset_job(
     name="daily_weather_partitioned",
-    selection=[
-        weather_observations,
-        expected_row_count,
-        timestamps_within_partition,
-    ],
+    selection=INGESTION_ASSETS,
     partitions_def=daily_partitions,
     run_tags=WAREHOUSE_RUN_TAGS,
     description="One UTC partition: fetch and land the snapshot, derive the "

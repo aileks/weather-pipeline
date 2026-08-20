@@ -8,27 +8,17 @@ fact and rebuilds dimensions and marts deterministically.
 
 import argparse
 import datetime as dt
-import subprocess
 import sys
-from pathlib import Path
 
 import dagster as dg
 
+from weather_pipeline.dbt_cli import run_dbt
 from weather_pipeline.defs.resources import OpenMeteoHttpResource
-from weather_pipeline.defs.schedules import PARTITION_START, WAREHOUSE_RUN_TAGS
-from weather_pipeline.defs.weather_assets import (
-    expected_row_count,
-    timestamps_within_partition,
-    weather_observations,
+from weather_pipeline.defs.schedules import (
+    INGESTION_ASSETS,
+    PARTITION_START,
+    WAREHOUSE_RUN_TAGS,
 )
-
-INGESTION_ASSETS = [
-    weather_observations,
-    expected_row_count,
-    timestamps_within_partition,
-]
-
-DBT_DIR = Path(__file__).parents[1].resolve() / "dbt"
 
 
 def parse_day(value: str) -> dt.date:
@@ -48,11 +38,7 @@ def partition_days(args: argparse.Namespace) -> list[dt.date]:
 
 
 def full_dbt_build() -> int:
-    return subprocess.run(
-        [str(Path(sys.executable).parent / "dbt"), "build", "--profiles-dir", "."],
-        cwd=DBT_DIR,
-        check=False,
-    ).returncode
+    return run_dbt(["build", "--profiles-dir", "."])
 
 
 def main() -> int:
