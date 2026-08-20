@@ -1,0 +1,25 @@
+services:
+  dagster-webserver:
+    build: .
+    command: dagster-webserver -h 0.0.0.0 -p 3000 -w workspace.yaml
+    ports:
+      - "3000:3000"
+    volumes:
+      - warehouse:/app/warehouse
+      - landing:/app/data/raw
+      - dagster-home:/opt/dagster/home
+    depends_on:
+      - dagster-daemon
+
+  dagster-daemon:
+    build: .
+    command: dagster-daemon run -w workspace.yaml
+    volumes:
+      - warehouse:/app/warehouse
+      - landing:/app/data/raw
+      - dagster-home:/opt/dagster/home
+
+volumes:
+  warehouse:
+  landing:
+  dagster-home:
