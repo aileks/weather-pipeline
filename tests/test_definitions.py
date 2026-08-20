@@ -46,6 +46,16 @@ def test_partitioned_assets_share_the_daily_partition_start():
     assert fct.partitions_def.start == dt.datetime(2026, 7, 1, tzinfo=dt.UTC)
 
 
+def test_ingestion_asset_carries_the_documented_freshness_policy():
+    graph = defs.resolve_asset_graph()
+    raw = graph.get(dg.AssetKey(["raw", "weather_observations"]))
+
+    policy = raw.freshness_policy
+    assert policy is not None
+    assert policy.warn_window.to_timedelta() == dt.timedelta(hours=36)
+    assert policy.fail_window.to_timedelta() == dt.timedelta(hours=48)
+
+
 def test_blocking_ingestion_checks_and_dbt_tests_are_registered():
     graph = defs.resolve_asset_graph()
     check_keys = {key.to_user_string() for key in graph.asset_check_keys}
