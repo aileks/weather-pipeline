@@ -30,7 +30,7 @@ flowchart LR
     ANOM --> SUM
 ```
 
-The edge from `raw_weather_observations` into `stg_hourly_observations` is the source asset-key mapping from [Transformation](transformation.md#source-mapping): the Dagster UI shows one continuous graph across the Python and dbt boundary, and downstream dbt runs are gated on the ingestion asset's successful materialization.
+The edge from `raw_weather_observations` into `stg_hourly_observations` is the source asset-key mapping from [Transformation](transformation.md#source-mapping): the Dagster UI shows one continuous graph across the Python and dbt boundary. The fact additionally declares a lineage dependency on the ingestion asset; run-order coupling between the two comes from the eager automation conditions, not in-run gating.
 
 ## Partitions
 
@@ -43,10 +43,10 @@ The edge from `raw_weather_observations` into `stg_hourly_observations` is the s
 
 The dbt project is exposed to Dagster as two `@dbt_assets` definitions, split on the selector `config.materialized:incremental` (the documented dagster-dbt pattern for projects that mix partitioned incremental models with plain ones):
 
-1. **Partitioned group** (`fct_hourly_weather`): daily partitions; each run executes `dbt build --select <incremental models> --vars '{"start_date": "...", "end_date": "..."}'` for exactly one UTC day. Tests for those models run in the same invocation and surface as Dagster asset checks.
+1. **Partitioned group** (`fct_hourly_weather`): daily partitions; each run executes `dbt build --select <incremental models> --vars '{"start_date": "...", "end_date": "..."}'` for exactly one UTC day. Tests for those models run in the same invocation and surface as Dagster asset checks. The group carries an `AutomationCondition.eager()` condition: when a raw partition lands, the daemon builds that day's fact. A spec-level edge cannot order a dbt multi-asset op after the ingestion op inside one run, so automation (not in-run ordering) is the coupling; scripts finish with one full dbt build instead.
 2. **Unpartitioned group** (staging view, dimensions, marts): no partitions; each run executes `dbt build` (seed, then models) for the remaining models. It carries an `AutomationCondition.eager()` condition: whenever any `fct_hourly_weather` partition is updated, the daemon re-materializes this group. That is the whole coupling: fact partitions change, marts follow. Declarative automation only launches runs when Dagster's **default automation condition sensor** is enabled ([Operations Runbook](operations-runbook.md#configuration)); with the sensor off, eager conditions evaluate to nothing and marts wait for a manual `make dbt-build`.
 
-Splitting matters for backfills: a 50-day backfill runs the partitioned group 50 times (one focused day each) while the unpartitioned group rebuilds once afterwards, instead of rebuilding every mart 50 times.
+Splitting matters for backfills: a 50-day backfill ingests 50 partitions (one focused day each) and then runs one full dbt build, instead of rebuilding every mart 50 times.
 
 ### Bootstrap and first-run ordering
 
@@ -88,7 +88,7 @@ The ingestion asset carries a freshness policy at its definition (warn at 36 hou
 
 ## Backfills
 
-Backfills are just batched partition materializations of the partitioned job (ingestion asset plus partitioned dbt group); the unpartitioned group follows via its automation condition. Because every layer is idempotent, a backfill is exactly the equivalent partition runs executed in batch: no duplicates, no partial state, and identical results for any day whose source values have already converged ([backfills](concepts.md#backfills) walks through why it holds here).
+Backfills are batched partition materializations of the partitioned job (the ingestion asset and its blocking checks) followed by one full dbt build that merges every ingested day into the fact and rebuilds dimensions and marts. Because every layer is idempotent, a backfill is exactly the equivalent partition runs executed in batch: no duplicates, no partial state, and identical results for any day whose source values have already converged ([backfills](concepts.md#backfills) walks through why it holds here).
 
 - **Initial backfill:** the partition range from 2026-07-01 through yesterday, launched once at project setup (the command lives in [Operations Runbook](operations-runbook.md#backfills)).
 - **Repair backfills:** any sub-range, after fixing whatever went wrong. Re-running converged days is harmless: new snapshots land that are source-value-equivalent reruns of the same values, differing only in run metadata.

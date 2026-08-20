@@ -2,13 +2,18 @@
 
 Operational constants (06:00 UTC, trailing 8 partitions, 2026-07-01 start)
 are owned by docs/orchestration.md; this module implements them.
+
+The partitioned job owns ingestion only (the ingestion asset and its
+blocking checks): a spec-level edge cannot order a dbt multi-asset op after
+the ingestion op inside one run, so the fact follows through its eager
+automation condition in daemon-driven flows, and scripts finish with one
+full dbt build.
 """
 
 import datetime as dt
 
 import dagster as dg
 
-from weather_pipeline.defs.dbt_assets import fct_hourly_weather_dbt
 from weather_pipeline.defs.weather_assets import (
     daily_partitions,
     expected_row_count,
@@ -26,14 +31,13 @@ partitioned_job = dg.define_asset_job(
     name="daily_weather_partitioned",
     selection=[
         weather_observations,
-        fct_hourly_weather_dbt,
         expected_row_count,
         timestamps_within_partition,
     ],
     partitions_def=daily_partitions,
     run_tags=WAREHOUSE_RUN_TAGS,
     description="One UTC partition: fetch and land the snapshot, derive the "
-    "raw slice, and merge the day into the fact.",
+    "raw slice, and pass the blocking checks.",
 )
 
 
@@ -43,7 +47,8 @@ partitioned_job = dg.define_asset_job(
     name="daily_reconciliation",
     description="At 06:00 UTC, re-materialize the trailing 8 partitions: "
     "yesterday is a fresh fetch, the previous 7 days absorb upstream "
-    "revisions of provisional values.",
+    "revisions of provisional values. The fact and marts follow through "
+    "their automation conditions.",
 )
 def daily_reconciliation(context: dg.ScheduleEvaluationContext):
     tick_time = (
