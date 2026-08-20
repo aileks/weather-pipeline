@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}weather reports{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,300&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<header class="masthead">
+  <a class="brand" href="/">
+    <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+      <circle cx="12" cy="12" r="2.1"></circle>
+      <path d="M12 4.5a7.5 7.5 0 0 1 7.5 7.5"></path>
+      <path d="M12 1.2A10.8 10.8 0 0 1 22.8 12"></path>
+      <path d="M12 19.5A7.5 7.5 0 0 1 4.5 12"></path>
+      <path d="M12 22.8A10.8 10.8 0 0 1 1.2 12"></path>
+    </svg>
+    <span class="brand-name">weather <em>reports</em></span>
+  </a>
+  <nav class="site-nav" aria-label="sections">
+    <a href="/"{% if request.url.path == "/" %} aria-current="page"{% endif %}>overview</a>
+    <a href="/anomalies"{% if request.url.path.startswith("/anomalies") %} aria-current="page"{% endif %}>flags</a>
+    <a href="/calendar"{% if request.url.path.startswith("/calendar") %} aria-current="page"{% endif %}>calendar</a>
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <span>read-only view over the duckdb warehouse</span>
+  <span>days are utc · drill-downs add city-local time</span>
+</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

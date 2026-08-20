@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% from "_icons.html" import weather_icon %}
+{% block title %}{{ location.city_name }} {{ date_utc }} · weather reports{% endblock %}
+{% block content %}
+<article class="report">
+  <header class="report-head">
+    <div class="report-nav-dates">
+      <a class="date-nav" href="/locations/{{ location.location_id }}/{{ prev_date }}">← {{ prev_date }}</a>
+      <a class="date-nav" href="/locations/{{ location.location_id }}/{{ next_date }}">{{ next_date }} →</a>
+    </div>
+    <p class="report-kicker">utc day report</p>
+    <h1 class="report-city">{{ location.city_name }}</h1>
+    <p class="report-meta">{{ date_utc }} · local clock {{ location.timezone }} · {{ location.country }}</p>
+    {% if summary %}
+    <div class="report-weather">
+      {{ weather_icon(summary.dominant_weather_code) }}
+      <span>{{ weather_label }}</span>
+      {% if summary.anomaly_count > 0 %}
+      <span class="flag-chip">{{ summary.anomaly_count }} flag{{ "" if summary.anomaly_count == 1 else "s" }} this day</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </header>
+
+  {% if not summary %}
+  <section class="empty-state">
+    <h2>no report for this day</h2>
+    <p>the warehouse has no summary row for {{ location.city_name }} on {{ date_utc }}.
+       the partition may not be ingested yet, or the date is in the future.</p>
+    <p><a class="quiet-link" href="/locations/{{ location.location_id }}">jump to the newest report</a></p>
+  </section>
+  {% else %}
+
+  <section class="metrics" aria-label="daily summary metrics">
+    <div class="metric"><span class="metric-value">{{ summary.temp_c_min | num(1) }}°</span><span class="metric-label">min temp</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.temp_c_max | num(1) }}°</span><span class="metric-label">max temp</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.temp_c_avg | num(1) }}°</span><span class="metric-label">avg temp</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.apparent_c_avg | num(1) }}°</span><span class="metric-label">avg apparent</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.precipitation_mm_sum | num(1) }}</span><span class="metric-label">precip mm</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.wind_kmh_avg | num(1) }}</span><span class="metric-label">avg wind km/h</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.wind_kmh_max | num(1) }}</span><span class="metric-label">max wind km/h</span></div>
+    <div class="metric"><span class="metric-value">{{ dominant_wind_direction or "n/a" }}</span><span class="metric-label">dominant wind</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.pressure_msl_hpa_min | num(1) }}</span><span class="metric-label">min pressure hpa</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.pressure_msl_hpa_avg | num(1) }}</span><span class="metric-label">avg pressure hpa</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.pressure_msl_hpa_max | num(1) }}</span><span class="metric-label">max pressure hpa</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.humidity_pct_avg | num(0) }}%</span><span class="metric-label">avg humidity</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.cloud_cover_pct_avg | num(0) }}%</span><span class="metric-label">avg cloud</span></div>
+    <div class="metric"><span class="metric-value">{{ summary.hours_observed }}</span><span class="metric-label">hours observed</span></div>
+  </section>
+
+  <section class="panel chart-panel">
+    <div class="panel-head">
+      <h2>hourly temperature</h2>
+      <span class="panel-note">flagged hours marked in signal color</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="hourly-chart" role="img" aria-label="hourly temperature line chart with flagged hours marked"></canvas>
+      <p id="chart-fallback" hidden>the chart script loads from a cdn and is unavailable offline; the hourly table below carries the same numbers.</p>
+    </div>
+    <script id="chart-data" type="application/json">{{ chart_payload | tojson }}</script>
+  </section>
+
+  <section class="panel flags-panel">
+    <div class="panel-head">
+      <h2>flags this day</h2>
+      <span class="panel-note">{{ flags | length }} flagged hour-variable pair{{ "" if flags | length == 1 else "s" }}</span>
+    </div>
+    {% if flags %}
+    <div class="table-scroll">
+    <table class="data-table flags-table">
+      <thead>
+        <tr><th>utc hour</th><th>local hour</th><th>variable</th><th>observed</th><th>baseline mean</th><th>baseline sd</th><th>comparables</th><th>z</th></tr>
+      </thead>
+      <tbody>
+        {% for flag in flags %}
+        <tr>
+          <td class="mono">{{ flag.hour_utc }}</td>
+          <td class="mono dim">{{ flag.hour_local }}</td>
+          <td><span class="var-label var-{{ flag.variable }}">{{ flag.variable_label }}</span>{% if flag.weak %} <span class="weak-tag" title="z-scores are a known-weak detector for precipitation">weak</span>{% endif %}</td>
+          <td class="mono">{{ flag.observed | num(1) }}</td>
+          <td class="mono dim">{{ flag.baseline_mean | num(1) }}</td>
+          <td class="mono dim">{{ flag.baseline_std | num(1) }}</td>
+          <td class="mono dim">{{ flag.comparable_obs_count }}</td>
+          <td><span class="z-badge {{ "z-low" if flag.z_score < 0 else "z-high" }}">{{ flag.z_score | signed }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="quiet">no flagged hours: abs(z) never reached 3 against the trailing 30-day baseline, or history is still thin.</p>
+    {% endif %}
+    <p class="panel-footnote"><a class="quiet-link" href="/anomalies?location={{ location.location_id }}">all flags for this city in the explorer</a></p>
+  </section>
+
+  <details class="panel hours-panel">
+    <summary>hourly observations</summary>
+    <div class="table-scroll">
+    <table class="data-table hours-table">
+      <thead>
+        <tr><th>utc</th><th>local</th><th>temp °c</th><th>apparent °c</th><th>precip mm</th><th>humidity %</th><th>wind km/h</th><th>dir</th><th>pressure hpa</th><th>cloud %</th><th>code</th></tr>
+      </thead>
+      <tbody>
+        {% for hour in hours %}
+        <tr>
+          <td class="mono">{{ hour.utc }}</td>
+          <td class="mono dim">{{ hour.local }}</td>
+          <td class="mono">{{ hour.temperature_c | num(1) }}</td>
+          <td class="mono dim">{{ hour.apparent_temperature_c | num(1) }}</td>
+          <td class="mono dim">{{ hour.precipitation_mm | num(1) }}</td>
+          <td class="mono dim">{{ hour.relative_humidity_pct | num(0) }}</td>
+          <td class="mono dim">{{ hour.wind_speed_kmh | num(1) }}</td>
+          <td class="mono dim">{{ hour.wind_direction }}</td>
+          <td class="mono dim">{{ hour.pressure_msl_hpa | num(1) }}</td>
+          <td class="mono dim">{{ hour.cloud_cover_pct | num(0) }}</td>
+          <td class="mono dim">{{ hour.weather_code if hour.weather_code is not none else "n/a" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </details>
+  {% endif %}
+</article>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+<script src="/static/report.js" defer></script>
+{% endblock %}

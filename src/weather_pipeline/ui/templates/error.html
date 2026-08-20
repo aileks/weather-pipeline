@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}unavailable · weather reports{% endblock %}
+{% block content %}
+<section class="empty-state">
+  {% if kind == "busy" %}
+  <h2>warehouse busy</h2>
+  <p>a pipeline run holds the warehouse lock right now. runs finish in seconds;
+     reload this page shortly.</p>
+  {% else %}
+  <h2>warehouse unavailable</h2>
+  <p>the ui could not open the duckdb warehouse read-only. it may not exist yet:
+     run the pipeline first (the runbook's local development section).</p>
+  <p class="quiet small">{{ detail }}</p>
+  {% endif %}
+</section>
+{% endblock %}

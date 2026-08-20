@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}flags · weather reports{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>anomaly flags</h1>
+  <p class="page-sub">every row in weather_anomalies, newest first: abs(z) ≥ 3 against the trailing 30-day hour-of-day baseline.</p>
+</div>
+
+<form class="filter-bar" method="get" action="/anomalies">
+  <label>city
+    <select name="location">
+      <option value="">all cities</option>
+      {% for loc in locations %}
+      <option value="{{ loc.location_id }}"{% if filters.location == loc.location_id %} selected{% endif %}>{{ loc.city_name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>variable
+    <select name="variable">
+      <option value="">all variables</option>
+      {% for variable in variables %}
+      <option value="{{ variable }}"{% if filters.variable == variable %} selected{% endif %}>{{ variable_labels[variable] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>from
+    <input type="date" name="date_from" value="{{ filters.date_from }}">
+  </label>
+  <label>to
+    <input type="date" name="date_to" value="{{ filters.date_to }}">
+  </label>
+  <label>z sign
+    <select name="z">
+      <option value="any"{% if filters.z == "any" %} selected{% endif %}>any</option>
+      <option value="high"{% if filters.z == "high" %} selected{% endif %}>high only</option>
+      <option value="low"{% if filters.z == "low" %} selected{% endif %}>low only</option>
+    </select>
+  </label>
+  <button type="submit">apply</button>
+  <a class="quiet-link reset-link" href="/anomalies">reset</a>
+</form>
+
+{% if span %}
+<p class="quiet small">flags exist from {{ span[0] }} to {{ span[1] }}.</p>
+{% else %}
+<p class="quiet small">no flags exist in the warehouse yet; they appear once a location has 14 comparable days of history.</p>
+{% endif %}
+
+<p class="result-count">showing {{ shown }} of {{ total }} matching row{{ "" if total == 1 else "s" }}{% if total > limit %}, capped at {{ limit }}{% endif %}</p>
+
+{% if flags %}
+<div class="table-scroll">
+<table class="data-table flags-table">
+  <thead>
+    <tr><th>city</th><th>utc hour</th><th>local hour</th><th>variable</th><th>observed</th><th>baseline mean</th><th>baseline sd</th><th>comparables</th><th>z</th></tr>
+  </thead>
+  <tbody>
+    {% for flag in flags %}
+    <tr>
+      <td><a class="city-link" href="/locations/{{ flag.location_id }}/{{ flag.hour_utc[:10] }}">{{ flag.city_name }}</a></td>
+      <td class="mono">{{ flag.hour_utc }}</td>
+      <td class="mono dim">{{ flag.hour_local }}</td>
+      <td><span class="var-label var-{{ flag.variable }}">{{ flag.variable_label }}</span>{% if flag.weak %} <span class="weak-tag" title="z-scores are a known-weak detector for precipitation">weak</span>{% endif %}</td>
+      <td class="mono">{{ flag.observed | num(1) }}</td>
+      <td class="mono dim">{{ flag.baseline_mean | num(1) }}</td>
+      <td class="mono dim">{{ flag.baseline_std | num(1) }}</td>
+      <td class="mono dim">{{ flag.comparable_obs_count }}</td>
+      <td><span class="z-badge {{ "z-low" if flag.z_score < 0 else "z-high" }}">{{ flag.z_score | signed }}</span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% elif span %}
+<section class="empty-state slim">
+  <h2>nothing matches</h2>
+  <p>no flagged rows match these filters.</p>
+</section>
+{% endif %}
+{% endblock %}

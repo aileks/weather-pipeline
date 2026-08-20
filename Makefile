@@ -2,7 +2,7 @@
 # the instance config is committed at .dagster/dagster.yaml.
 export DAGSTER_HOME := $(abspath .dagster)
 
-.PHONY: setup dev bootstrap backfill reconcile rebuild-raw dbt-build test verify lint format clean
+.PHONY: setup dev ui bootstrap backfill reconcile rebuild-raw dbt-build test verify lint format clean
 
 setup:
 	uv sync
@@ -10,6 +10,9 @@ setup:
 
 dev:
 	uv run dagster dev -m weather_pipeline.definitions
+
+ui:
+	uv run uvicorn weather_pipeline.ui.app:app
 
 bootstrap:
 	uv run python scripts/bootstrap.py

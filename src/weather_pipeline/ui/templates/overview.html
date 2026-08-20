@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_icons.html" import weather_icon %}
+{% block title %}overview · weather reports{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>the observing room</h1>
+  <p class="page-sub">each city's latest materialized utc day. open a card for the full report.</p>
+</div>
+{% if cards %}
+<section class="city-grid">
+  {% for card in cards %}
+  <a class="city-card" href="/locations/{{ card.location_id }}/{{ card.date_utc }}">
+    <div class="city-card-top">
+      <h2 class="city-name">{{ card.city_name }}</h2>
+      {% if card.anomaly_count > 0 %}
+      <span class="flag-chip">{{ card.anomaly_count }} flag{{ "" if card.anomaly_count == 1 else "s" }}</span>
+      {% endif %}
+    </div>
+    <p class="city-country">{{ card.country }}</p>
+    <div class="city-temp">
+      <span class="temp-avg">{{ card.temp_c_avg | num(1) }}°</span>
+      <span class="temp-range">lo {{ card.temp_c_min | num(1) }}° · hi {{ card.temp_c_max | num(1) }}°</span>
+    </div>
+    <div class="city-weather">
+      {{ weather_icon(card.weather_code) }}
+      <span>{{ card.weather_label }}</span>
+    </div>
+    <p class="city-through">data through {{ card.date_utc }} utc</p>
+  </a>
+  {% endfor %}
+</section>
+{% else %}
+<section class="empty-state">
+  <h2>no summaries yet</h2>
+  <p>the warehouse has no daily_weather_summary rows. run the pipeline first, then reload.</p>
+</section>
+{% endif %}
+{% endblock %}
