@@ -63,7 +63,7 @@ What changes, layer by layer, when this stops being a local project:
 |---|---|---|
 | Storage | DuckDB file + Parquet on disk | Object storage (S3/GCS) for snapshots; DuckDB/MotherDuck or a cloud warehouse (Snowflake, BigQuery) for tables |
 | Engine | DuckDB, single writer, serialized runs | Client-server or cloud warehouse: the concurrency tag limit disappears; dialect review of dbt SQL (dbt owns most of it) |
-| Orchestration | `dg dev` / compose on one machine | Dagster deployed (Dagster+ or self-hosted with a real instance database); same asset code, real daemon HA |
+| Orchestration | `dagster dev` / compose on one machine | Dagster deployed (Dagster+ or self-hosted with a real instance database); same asset code, real daemon HA |
 | Ingestion secrets | None (keyless) | API key management via the platform's secrets store if a paid tier is adopted |
 | Observability | UI, freshness policies, run logs | Same plus alerting routed from failed checks and freshness to on-call |
 | CI/CD | Offline verification | Same offline stages, plus deploy job for the code location; the landing-zone rebuild procedure doubles as disaster recovery |

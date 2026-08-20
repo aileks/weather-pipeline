@@ -17,7 +17,7 @@ No API key and no secrets are needed: the Open-Meteo archive API is keyless for 
 Day-to-day entry point is the Dagster UI:
 
 ```bash
-make dev                     # wraps: uv run dg dev  ->  http://localhost:3000
+make dev                     # wraps: uv run dagster dev -m weather_pipeline.definitions  ->  http://localhost:3000
 ```
 
 One setup step is not optional: enable the **default automation condition sensor** (UI: Automation section). Declarative automation, including the unpartitioned dbt group's eager condition, launches runs only through that sensor; without it, marts never rebuild on their own (see [troubleshooting](#troubleshooting)).
@@ -149,7 +149,7 @@ Workflow: `.github/workflows/ci.yml`, on every push and pull request, four offli
 
 | Symptom | Likely cause | Action |
 |---|---|---|
-| `Could not set lock on file` / `database is locked` | Another process holds the warehouse: a `duckdb` CLI session, a second `dg dev`, the Docker stack, or two runs racing (concurrency config not applied) | Close the other holder; verify `dagster.yaml` declares the `warehouse=duckdb` pool; re-run |
+| `Could not set lock on file` / `database is locked` | Another process holds the warehouse: a `duckdb` CLI session, a second `dagster dev`, the Docker stack, or two runs racing (concurrency config not applied) | Close the other holder; verify `dagster.yaml` declares the `warehouse=duckdb` pool; re-run |
 | Marts never rebuild after fact runs | Default automation condition sensor disabled, so the eager condition launches nothing | UI: Automation section, enable the default automation condition sensor, or rebuild explicitly with `make dbt-build` |
 | Run fails with HTTP 400 and a `reason` | Deterministic API error: date out of allowed range (start before 1940-01-01, end after today), malformed request | Fix the partition range; do not retry, it will fail identically |
 | HTTP 429 after retries | Rate limiting (unlikely: 8 calls/day vs 10k/day allowance) | Check for accidental parallel backfills or non-pipeline traffic from your IP |
@@ -164,7 +164,7 @@ Workflow: `.github/workflows/ci.yml`, on every push and pull request, four offli
 | Target | Wraps |
 |---|---|
 | `make setup` | `uv sync` + `pre-commit install` |
-| `make dev` | Dagster UI (`dg dev`) |
+| `make dev` | Dagster UI (`dagster dev`) |
 | `make backfill FROM=DATE TO=DATE` | range backfill via `scripts/backfill.py` |
 | `make reconcile` | trailing-8 backfill (schedule-equivalent, immediate) |
 | `make rebuild-raw` | re-derive raw table from latest snapshots |
