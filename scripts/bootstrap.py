@@ -24,6 +24,9 @@ def main() -> int:
     with duckdb.connect(str(settings.duckdb_path)) as connection:
         connection.execute(RAW_TABLE_DDL)
 
+    # packages are gitignored: install them before the first build
+    if run_dbt(["deps", "--profiles-dir", "."]) != 0:
+        return 1
     return run_dbt(
         [
             "build",
