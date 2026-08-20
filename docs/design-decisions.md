@@ -12,6 +12,7 @@ This document is the project's decision record: every hard-to-reverse choice in 
 | 4 | Converging re-materialization of recent partitions | Best Match serves provisional values; re-fetching the trailing 8 days absorbs upstream revisions |
 | 5 | Incremental fact, full-rebuild marts | Incremental where revision semantics demand it; rebuilds where simplicity wins at trivial cost |
 | 6 | Hour-of-day-matched z-score anomaly heuristic | Explainable, auditable, works from day 15; honestly labeled including its weak variable |
+| 7 | Read-only report UI directly over the warehouse | Transient read-only connections with bounded lock retry; no serving copy to operate |
 
 Smaller decisions, recorded here once:
 
@@ -20,6 +21,7 @@ Smaller decisions, recorded here once:
 - **`is_day` derived, not fetched:** the archive API does not serve the flag; a NOAA solar-position macro in staging derives it deterministically ([Transformation](transformation.md#stg_hourly_observations)).
 - **No API key, no secrets manager (yet):** the source is keyless within free limits; nothing to rotate, so nothing to build (see [limitations](#limitations)).
 - **Tag-based run concurrency of 1:** the direct consequence of DuckDB's single-writer file lock ([Orchestration](orchestration.md#duckdb-single-writer-and-run-concurrency)).
+- **Report UI as a FastAPI app, not a data-app framework:** server-rendered pages with real URLs and plain GET forms, testable with the same pytest pyramid as the rest of the project ([Reporting UI](reporting-ui.md)).
 
 ## The three big calls, in full
 
@@ -54,6 +56,7 @@ Accepted knowingly, each with its escape hatch:
 - **Precipitation anomaly detection is weak:** zero-heavy skew makes z-scores a poor detector there; kept deliberately and labeled loudly ([Anomaly Detection](anomaly-detection.md#variables-covered)). Escape: percentile or wet-day-conditioned methods, roadmap.
 - **One timezone basis:** everything is UTC, so "local day" questions (what happened Tuesday in Tokyo) need conversion at query time; a `dim_location.timezone` column exists precisely to make that easy, but no local-day marts are planned.
 - **CI proves the pipeline offline only:** live-API behavior is verified by the runbook's manual checklist, not by CI ([Quality & Testing](quality-testing.md#ci)).
+- **Report UI chart and fonts load from CDNs:** the hourly chart and typography need internet at view time; pages, tables, and all numbers render fully offline, and tests execute no browser JavaScript. Escape: vendor the assets if offline viewing ever matters ([Reporting UI](reporting-ui.md#client-scripting)).
 
 ## Moving to production
 

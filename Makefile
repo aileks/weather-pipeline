@@ -11,7 +11,7 @@ setup:
 dev:
 	uv run dagster dev -m weather_pipeline.definitions
 
-ui:
+web-ui:
 	uv run uvicorn weather_pipeline.ui.app:app
 
 bootstrap:

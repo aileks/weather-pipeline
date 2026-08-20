@@ -33,6 +33,7 @@ daily_weather_summary · weather_anomalies
 | [Orchestration](docs/orchestration.md)           | The asset graph, partitions, schedules, reconciliation, backfills, failure recovery                     |
 | [Quality & Testing](docs/quality-testing.md)     | The three testing layers and what each one catches                                                      |
 | [Anomaly Detection](docs/anomaly-detection.md)   | The statistical heuristic, its worked example, and its honest limits                                    |
+| [Reporting UI](docs/reporting-ui.md)             | The read-only web interface: daily reports, the flag explorer, the calendar, its connection policy      |
 | [Operations Runbook](docs/operations-runbook.md) | Setup, configuration, running things, verifying runs, troubleshooting, the only document with commands  |
 | [Concepts](docs/concepts.md)                     | Data engineering concepts (idempotency, backfills, dimensional modeling) explained through this project |
 | [Design Decisions](docs/design-decisions.md)     | Why each choice was made, what was rejected, limitations, and the production migration path             |

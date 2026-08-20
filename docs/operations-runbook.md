@@ -119,6 +119,16 @@ uv run dbt docs serve   --project-dir dbt --profiles-dir dbt
 
 `make dbt-build` is the wrapper. Partition-windowed builds (what Dagster executes) pass `--vars '{"start_date": "...", "end_date": "..."}'`; manual invocations default to the full-history window.
 
+## Weather report UI
+
+A local, read-only report interface over the warehouse ([Reporting UI](reporting-ui.md)); it holds no state and cannot write, so it is safe to run at any time:
+
+```bash
+make ui                        # uvicorn weather_pipeline.ui.app:app  ->  http://localhost:8000
+```
+
+It opens `warehouse/weather.duckdb` read-only for the duration of each request. A 503 "warehouse busy" page means a pipeline run held the lock; reload once the run finishes. It pairs with local runs: the compose stack's warehouse lives in a named volume, so the UI does not see container-run data.
+
 ## Tests and lint
 
 ```bash
@@ -165,6 +175,7 @@ Workflow: `.github/workflows/ci.yml`, on every push and pull request, four offli
 |---|---|
 | `make setup` | `uv sync` + `pre-commit install` |
 | `make dev` | Dagster UI (`dagster dev`) |
+| `make ui` | weather report UI (`uvicorn`) |
 | `make backfill FROM=DATE TO=DATE` | range backfill via `scripts/backfill.py` |
 | `make reconcile` | trailing-8 backfill (schedule-equivalent, immediate) |
 | `make rebuild-raw` | re-derive raw table from latest snapshots |
