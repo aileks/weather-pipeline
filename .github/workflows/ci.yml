@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      DAGSTER_HOME: ${{ github.workspace }}/.dagster
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: install dependencies
+        run: uv sync
+
+      - name: lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: tests
+        run: uv run pytest
+
+      - name: offline end-to-end verification
+        run: uv run python scripts/verify_offline.py
