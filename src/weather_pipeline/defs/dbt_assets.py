@@ -38,6 +38,7 @@ INCREMENTAL_SELECTOR = "config.materialized:incremental"
     select=INCREMENTAL_SELECTOR,
     partitions_def=daily_partitions,
     retry_policy=dg.RetryPolicy(max_retries=1),
+    pool="warehouse",
 )
 def fct_hourly_weather_dbt(context: dg.AssetExecutionContext, dbt: DbtCliResource):
     """Build the incremental fact for exactly one partition day."""
@@ -56,6 +57,7 @@ def fct_hourly_weather_dbt(context: dg.AssetExecutionContext, dbt: DbtCliResourc
     manifest=dbt_project.manifest_path,
     exclude=INCREMENTAL_SELECTOR,
     retry_policy=dg.RetryPolicy(max_retries=1),
+    pool="warehouse",
 )
 def warehouse_dbt(context: dg.AssetExecutionContext, dbt: DbtCliResource):
     """Build the seed, staging view, dimensions, and marts."""

@@ -1,0 +1,16 @@
+# Dagster instance configuration for local development; `dagster dev` and
+# `dagster instance` commands read this file from the working directory.
+#
+# Every warehouse writer (ingestion asset and both dbt asset groups) is
+# assigned to the "warehouse" pool in code; with run granularity and a
+# default limit of one, the pool serializes all runs that would write the
+# DuckDB file concurrently (docs/orchestration.md#duckdb-single-writer-and-run-concurrency).
+concurrency:
+  pools:
+    default_limit: 1
+    granularity: run
+
+# Cancelled runs release pool slots only after this cleanup passes.
+run_monitoring:
+  enabled: true
+  free_slots_after_run_end_seconds: 300
