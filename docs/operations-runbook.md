@@ -143,7 +143,7 @@ One caveat inherited from DuckDB's single-writer model: do not run the UI locall
 
 ## CI
 
-Workflow: `.github/workflows/ci.yml`, on every push and pull request, four offline stages (install, ruff, pytest, offline end-to-end; rationale in [Quality & Testing](quality-testing.md#ci)). CI never calls the live API. A red CI pytest or verify stage is always reproducible locally with `uv run pytest` / `make verify-offline`.
+Workflow: `.github/workflows/ci.yml`, on every push and pull request, four offline stages (install, ruff, pytest, offline end-to-end; rationale in [Quality & Testing](quality-testing.md#ci)). CI never calls the live API. A red CI pytest or verify stage is always reproducible locally with `uv run pytest` / `make verify`.
 
 ## Troubleshooting
 

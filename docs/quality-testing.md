@@ -21,11 +21,11 @@ Test modules and what each proves:
 | Module | Tests | Intent |
 |---|---|---|
 | `test_open_meteo_client.py` | multi-location array parsing; response-order-to-city mapping; null preservation; units assertion raises on unexpected units; 400-with-error-body maps to a deterministic (non-retryable) failure; timeout/5xx map to retryable | The API contract in [Ingestion & Storage](ingestion-storage.md#the-source-open-meteo-historical-weather-api) is enforced, and failure classification is explicit |
-| `test_is_daylight.py` | macro SQL executed on an ephemeral DuckDB: Reykjavík polar-night noon is night; equator noon is day; London equinox sunrise hour flips `is_day` | The one piece of derived science in staging is right at its edges |
-| `test_raw_asset.py` | materialize one partition (mocked transport, tmp landing, ephemeral DuckDB): snapshot appears at the exact expected path and name; raw table has cities x 24 rows; **re-materialize the same partition**: a second snapshot is added, the first is byte-identical (immutability), the table slice now mirrors the revised fixture values with unchanged row count (idempotent derive) | The snapshot/table mechanics that everything else trusts |
+| `test_is_daylight.py` | macro SQL executed on an ephemeral DuckDB: Svalbard polar-night noon is night; equator noon is day; London equinox sunrise hour flips `is_day` | The one piece of derived science in staging is right at its edges |
+| `test_weather_asset.py` | materialize one partition (mocked transport, tmp landing, ephemeral DuckDB): snapshot appears at the exact expected path and name; raw table has cities x 24 rows; **re-materialize the same partition**: a second snapshot is added, the first is byte-identical (immutability), the table slice now mirrors the revised fixture values with unchanged row count (idempotent derive) | The snapshot/table mechanics that everything else trusts |
 | `test_definitions.py` | Definitions object loads; asset graph contains the expected edges (raw -> staging -> fact -> marts); partition definition starts 2026-07-01; the reconciliation schedule exists and targets the trailing 8 partitions; freshness policy is attached; the `warehouse=duckdb` concurrency tag is applied | Wiring declared in [Orchestration](orchestration.md) cannot silently drift |
 
-The `test_raw_asset.py` pair (immutability + idempotent re-derivation) is the regression net for the two properties this architecture is built on; if any future change breaks either, CI says so before a single real partition is touched.
+The `test_weather_asset.py` pair (immutability + idempotent re-derivation) is the regression net for the two properties this architecture is built on; if any future change breaks either, CI says so before a single real partition is touched.
 
 ## Layer 2: dbt data tests
 

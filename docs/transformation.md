@@ -72,7 +72,7 @@ The Python asset `raw_weather_observations` and this source resolve to the same 
 
 Eight cities spanning hemispheres and climate regimes: New York, London, Tokyo, Sydney, São Paulo, Cairo, Mumbai, Reykjavík. Adding a city is a seed row plus a backfill of its partitions, no model changes.
 
-`dim_location` (table, `core`) is a thin select over the seed; the seed is loaded by `dbt seed` before models in every run group (M3 milestone). Tests: `unique`/`not_null` on `location_id`, latitude in -90 to 90, longitude in -180 to 180.
+`dim_location` (table, `core`) is a thin select over the seed; the seed is loaded by the bootstrap script (and re-loaded before backfills that introduce a new city), not by the dbt asset groups. Tests: `unique`/`not_null` on `location_id`, latitude in -90 to 90, longitude in -180 to 180.
 
 ## stg_hourly_observations
 
