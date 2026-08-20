@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: weather_anomalies
+    description: >
+      Hours that are rare against the last month of comparable hours: same
+      variable, location, and UTC hour of day, trailing 30 days, minimum 14
+      non-null comparables, absolute z-score at least 3. A heuristic flagged
+      for humans, not a verdict; precipitation_mm is a known-weak variable
+      (docs/anomaly-detection.md).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, hour_ts_utc, variable]
+      - not_null:
+          arguments:
+            column_name: location_id
+      - not_null:
+          arguments:
+            column_name: hour_ts_utc
+      - not_null:
+          arguments:
+            column_name: variable
+      - accepted_values:
+          arguments:
+            column_name: variable
+            values: [temperature_c, precipitation_mm, wind_speed_kmh, surface_pressure_hpa]
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: comparable_obs_count
+            min_value: 14
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "abs(z_score) >= 3"
+
+  - name: daily_weather_summary
+    description: >
+      One row per location per UTC day. hours_observed is always 24 because
+      the blocking ingestion check rejects incomplete city-days.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [location_id, date_utc]
+      - not_null:
+          arguments:
+            column_name: location_id
+      - not_null:
+          arguments:
+            column_name: date_utc
+      - relationships:
+          arguments:
+            column_name: location_id
+            to: ref('dim_location')
+            field: location_id
+      - relationships:
+          arguments:
+            column_name: date_utc
+            to: ref('dim_date')
+            field: date_day
+      - dbt_utils.expression_is_true:
+          arguments:
+            expression: "hours_observed = 24"
+      - dbt_utils.accepted_range:
+          arguments:
+            column_name: anomaly_count
+            min_value: 0
