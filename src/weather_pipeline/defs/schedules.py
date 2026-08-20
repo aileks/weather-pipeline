@@ -15,7 +15,6 @@ import datetime as dt
 import dagster as dg
 
 from weather_pipeline.defs.weather_assets import (
-    daily_partitions,
     expected_row_count,
     timestamps_within_partition,
     weather_observations,
@@ -36,7 +35,6 @@ INGESTION_ASSETS = [
 partitioned_job = dg.define_asset_job(
     name="daily_weather_partitioned",
     selection=INGESTION_ASSETS,
-    partitions_def=daily_partitions,
     run_tags=WAREHOUSE_RUN_TAGS,
     description="One UTC partition: fetch and land the snapshot, derive the "
     "raw slice, and pass the blocking checks.",

@@ -156,7 +156,9 @@ def main() -> int:
         outlier_day = days[OUTLIER_DAY_OFFSET]
 
         # one full deterministic dbt build: fact for every ingested day,
-        # dimensions, and marts
+        # dimensions, and marts (deps first: packages are gitignored)
+        if run_dbt(["deps", "--profiles-dir", "."]) != 0:
+            failures.append("dbt deps failed")
         build = run_dbt(["build", "--profiles-dir", "."])
         if build != 0:
             failures.append("full dbt build failed")

@@ -39,6 +39,10 @@ known-first-party = ["weather_pipeline"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    # dagster-internal: sql_event_log calls utcfromtimestamp; not ours to fix
+    "ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning",
+]
 
 [tool.dagster]
 module_name = "weather_pipeline.definitions"
