@@ -12,8 +12,7 @@ dev:
 	uv run dagster dev -m weather_pipeline.definitions
 
 bootstrap:
-	uv run dbt build --project-dir dbt --profiles-dir dbt \
-		--select cities dim_location dim_date stg_hourly_observations
+	uv run python scripts/bootstrap.py
 
 backfill:
 	uv run python scripts/backfill.py --from $(FROM) --to $(TO)
@@ -25,7 +24,7 @@ rebuild-raw:
 	uv run python scripts/rebuild_raw.py
 
 dbt-build:
-	uv run dbt build --project-dir dbt --profiles-dir dbt
+	cd dbt && uv run dbt build --profiles-dir .
 
 test:
 	uv run pytest

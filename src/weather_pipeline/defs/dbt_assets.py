@@ -11,6 +11,9 @@ because @dbt_assets supports no deps parameter (AGENTS.md).
 import datetime as dt
 import json
 import os
+import subprocess
+import sys
+from pathlib import Path
 
 import dagster as dg
 from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
@@ -27,8 +30,22 @@ os.environ.setdefault(
     str(Settings.from_env().duckdb_path.resolve()),
 )
 
-dbt_project = DbtProject(project_dir="dbt", profiles_dir="dbt")
-dbt_project.prepare_if_dev()
+# absolute paths: dagster-dbt runs dbt with cwd=project dir, so any relative
+# path (project, profiles, seeds) would resolve differently per invoker
+DBT_DIR = Path("dbt").resolve()
+
+dbt_project = DbtProject(project_dir=DBT_DIR, profiles_dir=DBT_DIR)
+if not dbt_project.manifest_path.exists():
+    # fresh checkout (CI, clean clone): parse once so the manifest exists.
+    # Parsing with cwd=project dir records project-relative paths, matching
+    # how dagster-dbt invokes dbt at runtime; dagster-dbt's own cli() writes
+    # to a per-invocation target dir, so this uses a plain subprocess.
+    subprocess.run(
+        [str(Path(sys.executable).parent / "dbt"), "parse", "--profiles-dir", str(DBT_DIR)],
+        cwd=DBT_DIR,
+        check=True,
+        capture_output=True,
+    )
 
 INCREMENTAL_SELECTOR = "config.materialized:incremental"
 
@@ -60,5 +77,14 @@ def fct_hourly_weather_dbt(context: dg.AssetExecutionContext, dbt: DbtCliResourc
     pool="warehouse",
 )
 def warehouse_dbt(context: dg.AssetExecutionContext, dbt: DbtCliResource):
-    """Build the seed, staging view, dimensions, and marts."""
-    yield from dbt.cli(["build", "--exclude", INCREMENTAL_SELECTOR], context=context).stream()
+    """Build the staging view, dimensions, and marts.
+
+    Seeds are excluded: loading cities.csv is a bootstrap concern
+    (scripts/bootstrap.py), not a per-materialization one, and dbt-duckdb's
+    seed file resolution under dagster-dbt's subprocess layout is fragile.
+    Models referencing ref('cities') use the table bootstrap loaded.
+    """
+    yield from dbt.cli(
+        ["build", "--exclude", f"{INCREMENTAL_SELECTOR},resource_type:seed"],
+        context=context,
+    ).stream()

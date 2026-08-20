@@ -12,14 +12,9 @@ The division of labor: pytest for Python behavior, dbt tests for model constrain
 
 ## Layer 1: pytest
 
-All tests run offline: HTTP is mocked with recorded API fixtures, the landing zone and DuckDB warehouse are temporary directories, and partition materializations use Dagster's in-process test APIs with an ephemeral instance.
+All tests run offline: HTTP is mocked, the landing zone and DuckDB warehouse are temporary directories, and partition materializations use Dagster's in-process test APIs with an ephemeral instance.
 
-Fixture recordings (one directory per scenario, real response bodies captured from the archive API at design time):
-
-- `happy_path/`: one UTC day, 8 cities, complete 24-hour series.
-- `with_nulls/`: scattered nulls in measure arrays.
-- `error_400/`: the API's error body shape for a bad date.
-- `revised_day/`: the same partition day fetched twice, with different values (the revision scenario).
+One real response body, recorded from the archive API at design time (`tests/fixtures/api/archive_2026-08-17.json`), anchors the parser tests; the other scenarios (scattered nulls, a missing city, unit changes, truncated or duplicated hours, the 400 error body) are mutations of that recording applied in-test, and the offline end-to-end scenario generates synthetic multi-day responses with a planted outlier. The revision scenario (the same day fetched twice with different values) is covered by re-materialization tests at the landing and asset levels.
 
 Test modules and what each proves:
 
@@ -78,4 +73,4 @@ Two different promises are in play, and they fail in different places. Recorded 
 
 ## CI
 
-GitHub Actions runs the whole pyramid offline on every push and pull request, in four stages: environment install, lint/format check (ruff), pytest, and an offline end-to-end scenario that loads the recorded fixtures through a real Dagster materialization into a throwaway warehouse, runs the full dbt build, and asserts outcomes (summary row counts per city-day, and the planted outlier in `revised_day`-style fixtures being detected as an anomaly). The stage list and rationale live here; the commands and the workflow file reference are in [Operations Runbook](operations-runbook.md#ci). CI never calls the live API; live verification is a manual step owned by the runbook's verification checklist.
+GitHub Actions runs the whole pyramid offline on every push and pull request, in four stages: environment install, lint/format check (ruff), pytest, and an offline end-to-end scenario that generates synthetic days, runs them through real Dagster materializations into a throwaway warehouse, runs the full dbt build, and asserts outcomes (summary row counts per city-day, the planted outlier being detected as an anomaly, and re-materialization leaving identical table state). The stage list and rationale live here; the commands and the workflow file reference are in [Operations Runbook](operations-runbook.md#ci). CI never calls the live API; live verification is a manual step owned by the runbook's verification checklist.

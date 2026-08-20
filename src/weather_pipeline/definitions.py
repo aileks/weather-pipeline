@@ -3,7 +3,11 @@
 import dagster as dg
 from dagster_dbt import DbtCliResource
 
-from weather_pipeline.defs.dbt_assets import dbt_project, fct_hourly_weather_dbt, warehouse_dbt
+from weather_pipeline.defs.dbt_assets import (
+    dbt_project,
+    fct_hourly_weather_dbt,
+    warehouse_dbt,
+)
 from weather_pipeline.defs.resources import OpenMeteoHttpResource
 from weather_pipeline.defs.schedules import daily_reconciliation, partitioned_job
 from weather_pipeline.defs.weather_assets import (
@@ -18,16 +22,20 @@ RAW_KEY = dg.AssetKey(["raw", "weather_observations"])
 
 
 def _wire_specs(spec: dg.AssetSpec) -> dg.AssetSpec:
-    if spec.key in UNPARTITIONED_DBT_KEYS:
-        # marts follow fact partitions: eager automation (the documented
-        # fallback for cross-group coupling, AGENTS.md), launched by the
-        # default automation condition sensor
-        return spec.replace_attributes(automation_condition=dg.AutomationCondition.eager())
     if spec.key == FCT_KEY:
-        # same-partition edge so the fact always builds after its raw slice
-        # landed; without it the fact step can run before ingestion within
-        # one run and silently insert nothing
-        return spec.replace_attributes(deps=[*spec.deps, dg.AssetDep(RAW_KEY)])
+        # the fact builds after its raw slice: eager automation in
+        # daemon-driven flows (a spec-level edge cannot order a dbt
+        # multi-asset op inside one run), and the lineage edge documents
+        # the same relationship for the graph
+        return spec.replace_attributes(
+            automation_condition=dg.AutomationCondition.eager(),
+            deps=[*spec.deps, dg.AssetDep(RAW_KEY)],
+        )
+    if spec.key in UNPARTITIONED_DBT_KEYS:
+        # marts follow the fact: eager automation (the documented fallback
+        # for cross-group coupling, AGENTS.md), launched by the default
+        # automation condition sensor
+        return spec.replace_attributes(automation_condition=dg.AutomationCondition.eager())
     return spec
 
 
@@ -38,6 +46,8 @@ defs = dg.Definitions(
     schedules=[daily_reconciliation],
     resources={
         "open_meteo_http": OpenMeteoHttpResource(),
-        "dbt": DbtCliResource(project_dir=dbt_project.project_dir, profiles_dir="dbt"),
+        "dbt": DbtCliResource(
+            project_dir=dbt_project.project_dir, profiles_dir=dbt_project.profiles_dir
+        ),
     },
 ).map_asset_specs(func=_wire_specs)
