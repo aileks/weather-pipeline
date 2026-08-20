@@ -36,7 +36,9 @@ def _run_started_at(context: dg.AssetExecutionContext) -> dt.datetime:
     Event timestamps are immutable, so every attempt of this run, including
     retries, computes the same snapshot filename.
     """
-    start_events = context.instance.all_logs(context.run_id, of_type=dg.DagsterEventType.RUN_START)
+    start_events = context.instance.all_logs(
+        context.run.run_id, of_type=dg.DagsterEventType.RUN_START
+    )
     if not start_events:
         raise dg.Failure(
             description="run start event is unavailable; snapshot identity requires it",
@@ -84,7 +86,7 @@ def weather_observations(
             rows,
             day,
             run_started_at,
-            context.run_id,
+            context.run.run_id,
         )
         derived_count = derive_partition(connection, settings.landing_dir, day)
 
@@ -100,7 +102,8 @@ def weather_observations(
     return dg.MaterializeResult(
         metadata={
             "snapshot_path": dg.MetadataValue.path(snapshot.path),
-            "snapshot_reused": snapshot.reused,
+            # bool is not an accepted metadata value; ints are
+            "snapshot_reused": int(snapshot.reused),
             "rows_landed": len(rows),
             "rows_derived": derived_count,
             "null_counts": null_counts,
