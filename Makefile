@@ -1,4 +1,8 @@
-.PHONY: setup dev bootstrap backfill reconcile rebuild-raw dbt-build test verify-offline lint fmt clean
+# One shared local Dagster instance for dev, schedules, and script runs;
+# the instance config is committed at .dagster/dagster.yaml.
+export DAGSTER_HOME := $(abspath .dagster)
+
+.PHONY: setup dev bootstrap backfill reconcile rebuild-raw dbt-build test verify lint format clean
 
 setup:
 	uv sync

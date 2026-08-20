@@ -28,6 +28,15 @@ def test_ingestion_asset_feeds_the_dbt_graph_through_the_source_mapping():
     assert "raw/weather_observations" in {key.to_user_string() for key in stg.parent_keys}
 
 
+def test_fact_waits_for_its_raw_slice_within_a_partitioned_run():
+    # without this same-partition edge the fact step can run before
+    # ingestion lands the day and silently insert nothing
+    graph = defs.resolve_asset_graph()
+    fct = graph.get(dg.AssetKey(["core", "fct_hourly_weather"]))
+
+    assert "raw/weather_observations" in {key.to_user_string() for key in fct.parent_keys}
+
+
 def test_partitioned_assets_share_the_daily_partition_start():
     graph = defs.resolve_asset_graph()
     raw = graph.get(dg.AssetKey(["raw", "weather_observations"]))

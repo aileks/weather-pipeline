@@ -11,7 +11,12 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 dbt/.user.yml
+dbt/package-lock.concurrent-update-lock
 
 .env
-.dagster/
+
+# DAGSTER_HOME: runtime state ignored, instance config committed
+.dagster/*
+!.dagster/dagster.yaml
+
 .dg/

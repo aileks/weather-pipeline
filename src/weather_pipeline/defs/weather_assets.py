@@ -48,6 +48,11 @@ def _run_started_at(context: dg.AssetExecutionContext) -> dt.datetime:
     key_prefix="raw",
     partitions_def=daily_partitions,
     group_name="ingestion",
+    pool="warehouse",
+    freshness_policy=dg.FreshnessPolicy.time_window(
+        warn_window=dt.timedelta(hours=36),
+        fail_window=dt.timedelta(hours=48),
+    ),
     description="Hourly observations for one UTC day, landed as an immutable "
     "snapshot and derived into raw.weather_observations.",
 )
