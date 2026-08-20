@@ -18,30 +18,30 @@
 
   var payload = JSON.parse(payloadEl.textContent);
   var root = getComputedStyle(document.documentElement);
-  var ink = root.getPropertyValue("--ink").trim() || "#e9e4d8";
-  var dim = root.getPropertyValue("--dim").trim() || "#9aa8a4";
-  var faint = root.getPropertyValue("--faint").trim() || "#67756f";
-  var signal = root.getPropertyValue("--signal").trim() || "#f2a54a";
-  var teal = root.getPropertyValue("--teal").trim() || "#63b3a5";
-  var grid = root.getPropertyValue("--hairline-soft").trim() || "#1a282e";
+  var ink = root.getPropertyValue("--ink").trim() || "#eceae4";
+  var dim = root.getPropertyValue("--dim").trim() || "#8f8f89";
+  var faint = root.getPropertyValue("--faint").trim() || "#5e5e59";
+  var signal = root.getPropertyValue("--signal").trim() || "#f5a623";
+  var teal = root.getPropertyValue("--teal").trim() || "#8f96a3";
+  var grid = root.getPropertyValue("--rule").trim() || "#1e1e1e";
 
-  Chart.defaults.font.family = "'IBM Plex Mono', ui-monospace, monospace";
+  Chart.defaults.font.family = "'DM Mono', ui-monospace, monospace";
   Chart.defaults.font.size = 11;
   Chart.defaults.color = dim;
 
   var datasets = [
     {
-      label: "temperature c",
+      label: "temperature °C",
       data: payload.temperature,
       borderColor: signal,
-      backgroundColor: "rgba(242, 165, 74, 0.10)",
+      backgroundColor: "rgba(245, 166, 35, 0.08)",
       borderWidth: 2,
       pointRadius: 0,
       tension: 0.35,
       fill: true,
     },
     {
-      label: "apparent c",
+      label: "apparent °C",
       data: payload.apparent,
       borderColor: teal,
       borderWidth: 1.5,
@@ -63,7 +63,7 @@
       pointHoverRadius: 8,
       pointBorderWidth: 2,
       pointBackgroundColor: signal,
-      pointBorderColor: "#0d1418",
+      pointBorderColor: "#000000",
     });
   }
 
@@ -106,7 +106,7 @@
           ticks: {
             color: dim,
             callback: function (value) {
-              return value + "\u00b0";
+              return value + "\u00b0C";
             },
           },
           grid: { color: grid },

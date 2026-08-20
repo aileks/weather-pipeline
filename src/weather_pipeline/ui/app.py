@@ -189,7 +189,7 @@ def create_app(duckdb_path: Path | str | None = None) -> FastAPI:
     def location_redirect(request: Request, location_id: str):
         with queries.connect(app.state.duckdb_path) as conn:
             if queries.location(conn, location_id) is None:
-                raise HTTPException(status_code=404, detail="unknown location")
+                raise HTTPException(status_code=404, detail="Unknown location")
             latest = queries.latest_date(conn, location_id)
         target = latest if latest is not None else dt.datetime.now(dt.UTC).date()
         return RedirectResponse(f"/locations/{location_id}/{target.isoformat()}", status_code=303)
@@ -199,12 +199,12 @@ def create_app(duckdb_path: Path | str | None = None) -> FastAPI:
         try:
             day = dt.date.fromisoformat(date)
         except ValueError:
-            raise HTTPException(status_code=404, detail="unknown date") from None
+            raise HTTPException(status_code=404, detail="Unknown date") from None
 
         with queries.connect(app.state.duckdb_path) as conn:
             location = queries.location(conn, location_id)
             if location is None:
-                raise HTTPException(status_code=404, detail="unknown location")
+                raise HTTPException(status_code=404, detail="Unknown location")
             summary = queries.summary(conn, location_id, day)
             hour_rows = queries.hours(conn, location_id, day)
             flags = queries.day_anomalies(conn, location_id, day)
@@ -273,7 +273,7 @@ def create_app(duckdb_path: Path | str | None = None) -> FastAPI:
         z: str = "any",
     ):
         if variable is not None and variable not in VARIABLE_LABELS:
-            raise HTTPException(status_code=422, detail="unknown variable")
+            raise HTTPException(status_code=422, detail="Unknown variable")
         if z not in ("any", "high", "low"):
             raise HTTPException(status_code=422, detail="z must be any, high, or low")
 
@@ -318,7 +318,7 @@ def create_app(duckdb_path: Path | str | None = None) -> FastAPI:
         with queries.connect(app.state.duckdb_path) as conn:
             all_locations = queries.locations(conn)
             if not all_locations:
-                raise HTTPException(status_code=404, detail="no locations in warehouse")
+                raise HTTPException(status_code=404, detail="No locations in warehouse")
             chosen = next(
                 (row for row in all_locations if row["location_id"] == location), all_locations[0]
             )

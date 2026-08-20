@@ -141,7 +141,7 @@ def client(warehouse_path):
 def test_overview_lists_each_city_with_latest_day(client):
     body = client.get("/").text
     assert "Tokyo" in body and "New York" in body
-    assert "data through 2026-08-18 utc" in body
+    assert "Data through 2026-08-18 UTC" in body
     assert 'href="/locations/tokyo/2026-08-18"' in body
 
 
@@ -162,7 +162,7 @@ def test_daily_report_shows_flag_with_utc_and_local_hours(client):
 
 def test_daily_report_renders_empty_state_for_future_date(client):
     body = client.get("/locations/tokyo/2026-08-30").text
-    assert "no report for this day" in body
+    assert "No report for this day" in body
     assert "hourly-chart" not in body
 
 
@@ -173,7 +173,7 @@ def test_daily_report_rejects_unknown_location_and_bad_date(client):
 
 def test_explorer_lists_flags_with_local_time_rolling_back_a_day(client):
     body = client.get("/anomalies").text
-    assert "showing 2 of 2" in body
+    assert "Showing 2 of 2" in body
     # 03:00 UTC in America/New_York is the previous calendar day, 23:00 local
     assert "2026-08-17 23:00" in body
 
@@ -188,7 +188,7 @@ def test_explorer_filters_by_city_variable_and_z_sign(client):
     assert "weak" in body  # precipitation carries the weak-detector tag
 
     body = client.get("/anomalies?date_from=2026-08-19").text
-    assert "showing 0 of 0" in body
+    assert "Showing 0 of 0" in body
 
 
 def test_explorer_rejects_unknown_variable(client):
@@ -206,7 +206,7 @@ def test_missing_warehouse_renders_unavailable_page(tmp_path):
     client = TestClient(create_app(tmp_path / "absent.duckdb"))
     response = client.get("/")
     assert response.status_code == 503
-    assert "warehouse unavailable" in response.text
+    assert "Warehouse unavailable" in response.text
 
 
 def test_lock_conflict_recovers_after_one_retry(warehouse_path, monkeypatch):
@@ -240,7 +240,7 @@ def test_lock_conflict_surfaces_busy_page_after_deadline(warehouse_path, monkeyp
     monkeypatch.setattr(queries.time, "sleep", lambda _: None)
     response = client.get("/")
     assert response.status_code == 503
-    assert "warehouse busy" in response.text
+    assert "Warehouse busy" in response.text
 
 
 def test_real_writer_process_makes_reads_retry_then_busy(warehouse_path, monkeypatch):
@@ -266,7 +266,7 @@ def test_real_writer_process_makes_reads_retry_then_busy(warehouse_path, monkeyp
         client = TestClient(create_app(warehouse_path))
         response = client.get("/")
         assert response.status_code == 503
-        assert "warehouse busy" in response.text
+        assert "Warehouse busy" in response.text
     finally:
         holder.kill()
         holder.wait()

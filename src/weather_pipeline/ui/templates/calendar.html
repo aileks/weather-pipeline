@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}{{ month_name }} {{ year }} · {{ chosen.city_name }} · weather reports{% endblock %}
+{% block title %}{{ month_name }} {{ year }} · {{ chosen.city_name }} · Weather Reports{% endblock %}
 {% block content %}
 <div class="page-head">
   <h1>{{ month_name }} <span class="year-dim">{{ year }}</span></h1>
-  <p class="page-sub">flag count per utc day · {{ chosen.city_name }}</p>
+  <p class="page-sub">Flag count per UTC day · {{ chosen.city_name }}</p>
 </div>
 
 <div class="calendar-controls">
   <form class="filter-bar compact" method="get" action="/calendar">
-    <label>city
+    <label>City
       <select name="location" onchange="this.form.submit()">
         {% for loc in locations %}
         <option value="{{ loc.location_id }}"{% if chosen.location_id == loc.location_id %} selected{% endif %}>{{ loc.city_name }}</option>
@@ -30,12 +30,12 @@
   <span class="swatch c2"></span><span class="legend-label">3-4</span>
   <span class="swatch c3"></span><span class="legend-label">5-6</span>
   <span class="swatch c4"></span><span class="legend-label">7+</span>
-  <span class="swatch nodata"></span><span class="legend-label">no data</span>
+  <span class="swatch nodata"></span><span class="legend-label">No data</span>
 </div>
 
 <table class="month-grid">
   <thead>
-    <tr><th>mon</th><th>tue</th><th>wed</th><th>thu</th><th>fri</th><th>sat</th><th>sun</th></tr>
+    <tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr>
   </thead>
   <tbody>
     {% for week in weeks %}

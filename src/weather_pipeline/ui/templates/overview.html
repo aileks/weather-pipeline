@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% from "_icons.html" import weather_icon %}
-{% block title %}overview · weather reports{% endblock %}
+{% block title %}Overview · Weather Reports{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>the observing room</h1>
-  <p class="page-sub">each city's latest materialized utc day. open a card for the full report.</p>
+  <p class="page-kicker">Overview</p>
+  <h1>Latest reports</h1>
+  <p class="page-sub">Each city's most recent materialized UTC day. Open a card for the full report.</p>
 </div>
 {% if cards %}
 <section class="city-grid">
@@ -18,21 +19,21 @@
     </div>
     <p class="city-country">{{ card.country }}</p>
     <div class="city-temp">
-      <span class="temp-avg">{{ card.temp_c_avg | num(1) }}°</span>
-      <span class="temp-range">lo {{ card.temp_c_min | num(1) }}° · hi {{ card.temp_c_max | num(1) }}°</span>
+      <span class="temp-avg">{{ card.temp_c_avg | num(1) }}°C</span>
+      <span class="temp-range">lo {{ card.temp_c_min | num(1) }}°C · hi {{ card.temp_c_max | num(1) }}°C</span>
     </div>
     <div class="city-weather">
       {{ weather_icon(card.weather_code) }}
       <span>{{ card.weather_label }}</span>
     </div>
-    <p class="city-through">data through {{ card.date_utc }} utc</p>
+    <p class="city-through">Data through {{ card.date_utc }} UTC</p>
   </a>
   {% endfor %}
 </section>
 {% else %}
 <section class="empty-state">
-  <h2>no summaries yet</h2>
-  <p>the warehouse has no daily_weather_summary rows. run the pipeline first, then reload.</p>
+  <h2>No summaries yet</h2>
+  <p>The warehouse has no daily_weather_summary rows. Run the pipeline first, then reload.</p>
 </section>
 {% endif %}
 {% endblock %}
