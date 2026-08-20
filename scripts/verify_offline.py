@@ -21,6 +21,13 @@ import dagster as dg
 import duckdb
 import httpx
 
+from weather_pipeline.cities import load_cities
+from weather_pipeline.defs.weather_assets import (
+    expected_row_count,
+    timestamps_within_partition,
+    weather_observations,
+)
+
 WAREHOUSE_TAG = {"warehouse": "duckdb"}
 BASE_URL = "https://archive-api.open-meteo.com/v1/archive"
 START_DAY = dt.date(2026, 7, 1)
@@ -29,15 +36,6 @@ OUTLIER_DAY_OFFSET = DAYS - 1
 OUTLIER_CITY = "reykjavik"
 OUTLIER_HOUR = 14
 OUTLIER_TEMP = 55.0
-
-sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
-
-from weather_pipeline.cities import load_cities  # noqa: E402
-from weather_pipeline.defs.weather_assets import (  # noqa: E402
-    expected_row_count,
-    timestamps_within_partition,
-    weather_observations,
-)
 
 INGESTION_ASSETS = [
     weather_observations,
