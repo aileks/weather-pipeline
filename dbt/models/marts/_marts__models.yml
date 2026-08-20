@@ -21,6 +21,21 @@ models:
       - not_null:
           arguments:
             column_name: variable
+      - not_null:
+          arguments:
+            column_name: observed_value
+      - not_null:
+          arguments:
+            column_name: baseline_mean
+      - not_null:
+          arguments:
+            column_name: baseline_std
+      - not_null:
+          arguments:
+            column_name: comparable_obs_count
+      - not_null:
+          arguments:
+            column_name: z_score
       - accepted_values:
           arguments:
             column_name: variable

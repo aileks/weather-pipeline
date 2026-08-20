@@ -22,28 +22,17 @@ import duckdb
 import httpx
 
 from weather_pipeline.cities import load_cities
-from weather_pipeline.defs.weather_assets import (
-    expected_row_count,
-    timestamps_within_partition,
-    weather_observations,
-)
+from weather_pipeline.dbt_cli import run_dbt
+from weather_pipeline.defs.schedules import INGESTION_ASSETS, WAREHOUSE_RUN_TAGS
+from weather_pipeline.settings import DEFAULT_OPEN_METEO_BASE_URL
 
-WAREHOUSE_TAG = {"warehouse": "duckdb"}
-BASE_URL = "https://archive-api.open-meteo.com/v1/archive"
+BASE_URL = DEFAULT_OPEN_METEO_BASE_URL
 START_DAY = dt.date(2026, 7, 1)
 DAYS = 20
 OUTLIER_DAY_OFFSET = DAYS - 1
 OUTLIER_CITY = "reykjavik"
 OUTLIER_HOUR = 14
 OUTLIER_TEMP = 55.0
-
-INGESTION_ASSETS = [
-    weather_observations,
-    expected_row_count,
-    timestamps_within_partition,
-]
-
-DBT_DIR = Path(__file__).parents[1].resolve() / "dbt"
 
 
 class SyntheticApi:
@@ -130,7 +119,7 @@ def run_day(resource, day: dt.date) -> bool:
         INGESTION_ASSETS,
         resources={"open_meteo_http": resource},
         partition_key=day.isoformat(),
-        tags=WAREHOUSE_TAG,
+        tags=WAREHOUSE_RUN_TAGS,
         raise_on_error=False,
     )
     return result.success
@@ -168,15 +157,9 @@ def main() -> int:
 
         # one full deterministic dbt build: fact for every ingested day,
         # dimensions, and marts
-        build = subprocess.run(
-            [str(Path(sys.executable).parent / "dbt"), "build", "--profiles-dir", "."],
-            cwd=DBT_DIR,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if build.returncode != 0:
-            failures.append(f"full dbt build failed:\n{build.stdout[-2000:]}")
+        build = run_dbt(["build", "--profiles-dir", "."])
+        if build != 0:
+            failures.append("full dbt build failed")
 
         with duckdb.connect(os.environ["WEATHER_PIPELINE_DUCKDB_PATH"], read_only=True) as con:
             summary_rows, incomplete_days = con.execute(
@@ -205,12 +188,22 @@ def main() -> int:
         rematerialized = days[5]
         if not run_day(api, rematerialized):
             failures.append(f"re-materialization of {rematerialized} failed")
+        # rebuild so the equivalence claim covers derived state too, not
+        # just the raw table
+        if run_dbt(["build", "--profiles-dir", "."]) != 0:
+            failures.append("equivalence dbt rebuild failed")
         with duckdb.connect(os.environ["WEATHER_PIPELINE_DUCKDB_PATH"], read_only=True) as con:
             fact_after = con.execute(
                 "SELECT count(*), sum(temperature_c) FROM core.fct_hourly_weather"
             ).fetchone()
             raw_after = con.execute("SELECT count(*) FROM raw.weather_observations").fetchone()[0]
-        if fact_after != fact_before or raw_after != raw_before:
+        # sums compare with tolerance: floating-point summation order varies
+        # between rebuilds even when row state is identical
+        same_fact = (
+            fact_after[0] == fact_before[0]
+            and abs((fact_after[1] or 0) - (fact_before[1] or 0)) < 1e-6
+        )
+        if not same_fact or raw_after != raw_before:
             failures.append(
                 f"backfill equivalence broken: fact {fact_before}->{fact_after}, "
                 f"raw {raw_before}->{raw_after}"

@@ -41,12 +41,12 @@ dominant_wind as (
             row_number() over (
                 partition by location_id, date_utc
                 order by count(*) desc, wind_direction_deg asc
-            ) as recency
+            ) as frequency_rank
         from observations
         where wind_direction_deg is not null
         group by 1, 2, 3
     )
-    where recency = 1
+    where frequency_rank = 1
 
 ),
 
@@ -61,12 +61,12 @@ dominant_code as (
             row_number() over (
                 partition by location_id, date_utc
                 order by count(*) desc, weather_code asc
-            ) as recency
+            ) as frequency_rank
         from observations
         where weather_code is not null
         group by 1, 2, 3
     )
-    where recency = 1
+    where frequency_rank = 1
 
 ),
 
@@ -105,6 +105,8 @@ select
 from daily
 join {{ ref('dim_location') }} using (location_id)
 join {{ ref('dim_date') }} on daily.date_utc = dim_date.date_day
-join dominant_wind using (location_id, date_utc)
-join dominant_code using (location_id, date_utc)
+-- left joins keep the grain: a city-day whose dominant column is fully
+-- null keeps its summary row with a null dominant value
+left join dominant_wind using (location_id, date_utc)
+left join dominant_code using (location_id, date_utc)
 left join anomaly_counts using (location_id, date_utc)

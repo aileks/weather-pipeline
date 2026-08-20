@@ -2,10 +2,10 @@
 
 Split on the incremental-materialization selector (the documented
 dagster-dbt pattern): the partitioned group runs the fact one UTC day at a
-time with start_date/end_date vars; the unpartitioned group builds the seed,
-staging view, dimensions, and marts. Cross-group coupling (marts follow fact
-updates) is sequenced by the unpartitioned group's automation condition,
-because @dbt_assets supports no deps parameter (AGENTS.md).
+time with start_date/end_date vars; the unpartitioned group builds the
+staging view, dimensions, and marts. Cross-group coupling (marts follow
+fact updates) is sequenced by automation conditions, because @dbt_assets
+supports no deps parameter (AGENTS.md).
 """
 
 import datetime as dt
@@ -18,6 +18,7 @@ from pathlib import Path
 import dagster as dg
 from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
 
+from weather_pipeline.dbt_cli import DBT_DIR
 from weather_pipeline.defs.weather_assets import daily_partitions
 from weather_pipeline.settings import Settings
 
@@ -29,10 +30,6 @@ os.environ.setdefault(
     "WEATHER_PIPELINE_DUCKDB_PATH",
     str(Settings.from_env().duckdb_path.resolve()),
 )
-
-# absolute paths: dagster-dbt runs dbt with cwd=project dir, so any relative
-# path (project, profiles, seeds) would resolve differently per invoker
-DBT_DIR = Path("dbt").resolve()
 
 dbt_project = DbtProject(project_dir=DBT_DIR, profiles_dir=DBT_DIR)
 if not dbt_project.manifest_path.exists():
@@ -54,7 +51,6 @@ INCREMENTAL_SELECTOR = "config.materialized:incremental"
     manifest=dbt_project.manifest_path,
     select=INCREMENTAL_SELECTOR,
     partitions_def=daily_partitions,
-    retry_policy=dg.RetryPolicy(max_retries=1),
     pool="warehouse",
 )
 def fct_hourly_weather_dbt(context: dg.AssetExecutionContext, dbt: DbtCliResource):
@@ -73,7 +69,6 @@ def fct_hourly_weather_dbt(context: dg.AssetExecutionContext, dbt: DbtCliResourc
 @dbt_assets(
     manifest=dbt_project.manifest_path,
     exclude=INCREMENTAL_SELECTOR,
-    retry_policy=dg.RetryPolicy(max_retries=1),
     pool="warehouse",
 )
 def warehouse_dbt(context: dg.AssetExecutionContext, dbt: DbtCliResource):

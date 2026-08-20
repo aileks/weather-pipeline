@@ -8,16 +8,13 @@ its working directory inside the project, which keeps recorded paths
 project-relative for dagster-dbt's later invocations.
 """
 
-import subprocess
 import sys
-from pathlib import Path
 
 import duckdb
 
+from weather_pipeline.dbt_cli import run_dbt
 from weather_pipeline.raw_store import RAW_TABLE_DDL
 from weather_pipeline.settings import Settings
-
-DBT_DIR = Path(__file__).parents[1].resolve() / "dbt"
 
 
 def main() -> int:
@@ -27,9 +24,8 @@ def main() -> int:
     with duckdb.connect(str(settings.duckdb_path)) as connection:
         connection.execute(RAW_TABLE_DDL)
 
-    return subprocess.run(
+    return run_dbt(
         [
-            str(Path(sys.executable).parent / "dbt"),
             "build",
             "--profiles-dir",
             ".",
@@ -40,10 +36,8 @@ def main() -> int:
             # their dimension parents); full builds test everything
             "--exclude",
             "resource_type:test",
-        ],
-        cwd=DBT_DIR,
-        check=False,
-    ).returncode
+        ]
+    )
 
 
 if __name__ == "__main__":
