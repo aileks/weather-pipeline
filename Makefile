@@ -5,7 +5,7 @@ setup:
 	uv run pre-commit install
 
 dev:
-	uv run dg dev
+	uv run dagster dev -m weather_pipeline.definitions
 
 bootstrap:
 	uv run dbt build --project-dir dbt --profiles-dir dbt \

@@ -8,6 +8,7 @@ dependencies = [
     "dagster~=1.13",
     "dagster-dbt~=0.29",
     "dagster-duckdb~=0.29",
+    "dagster-webserver>=1.13.18",
     "dbt-core~=1.11.0",
     "dbt-duckdb~=1.11.0",
     "duckdb>=1.0",
@@ -38,3 +39,6 @@ known-first-party = ["weather_pipeline"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.dagster]
+module_name = "weather_pipeline.definitions"
